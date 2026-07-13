@@ -113,4 +113,14 @@ h3.sub:first-child{margin-top:0;}
 .verdict-col.worked .verdict-list li::before{content:'✓';color:var(--teal);}
 .verdict-col.didnt .verdict-list li::before{content:'✗';color:var(--coral);}
 
+/* SCREENSHOTS */
+.screenshot-figure{margin:22px 0;}
+.screenshot{
+  width:100%;display:block;border:1px solid var(--line);border-radius:10px;
+}
+.screenshot-caption{
+  font-family:'IBM Plex Mono';font-size:11.5px;color:var(--ink-faint);
+  margin-top:8px;line-height:1.5;
+}
+
 footer{border-top:1px solid var(--line);}

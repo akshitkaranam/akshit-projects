@@ -45,6 +45,10 @@
     <h2 class="section-title">Elo-style ranking &amp; model cards</h2>
     <p class="lede">The first piece was a ranking layer, not a leaderboard. Raw benchmark scores don't compose well across categories — a model that's 3 points ahead on MMLU and 8 points behind on GAIA doesn't have an obvious "winner." I designed an Elo-style (Bradley-Terry) system that runs head-to-head comparisons within each benchmark category and produces a relative ranking, the same mechanism chess ratings and LMSYS Arena use for exactly this kind of intransitive comparison problem.</p>
     <p class="lede">Every model that goes through the process gets a model card: a short writeup of performance trends, where it's strong or weak by domain, and a read on enterprise readiness — the kind of thing a team lead can skim in two minutes before deciding whether to pilot a model. Those cards, plus the underlying scores, feed interactive Power BI dashboards so stakeholders can filter by domain and by core capability (reasoning, coding, multilingual, safety) instead of asking me for a one-off comparison every time.</p>
+    <figure class="screenshot-figure">
+      <img class="screenshot" src="../img/power-bi-model-comparator.png" alt="Power BI 'Model Performance Comparator' dashboard, showing models ranked by combined rank across selected benchmark categories such as arithmetic, coding, and hallucination">
+      <figcaption class="screenshot-caption">The Power BI dashboard stakeholders use to compare models — filter by category, rank by combined position across the categories that matter for a given use case.</figcaption>
+    </figure>
   </div>
 </section>
 
