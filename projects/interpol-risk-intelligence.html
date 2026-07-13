@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI-Driven Risk Intelligence for INTERPOL Fugitives — Akshit Karanam</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/base.css">
+<link rel="stylesheet" href="../css/project.css">
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a class="back" href="../index.html#projects">← Akshit Karanam</a>
+    <a class="brand" href="../index.html">AK</a>
+  </div>
+</nav>
+
+<header class="hero wrap">
+  <div class="kicker"><span class="dot"></span>Case Study</div>
+  <h1 class="title">AI-Driven Risk Intelligence for 2026 INTERPOL Fugitives</h1>
+  <p class="dek">Multi-pillar semantic identity resolution and biometric refutation — replacing rigid blacklist matching with a weighted, auditable risk score across four independent signals, with a biometric check that can veto the whole thing.</p>
+  <div class="meta-row">
+    <span class="chip">SMU — CS610 group project, Grade A</span>
+  </div>
+  <div class="cov"><span class="f-navy"></span><span class="f-navy"></span><span class="f-navy"></span><span></span></div>
+  <div class="cov-label">SMU, Grade A</div>
+</header>
+
+<article>
+
+<section id="problem">
+  <div class="wrap">
+    <h2 class="section-title">The analyst's trap</h2>
+    <p class="lede">Rigid, deterministic blacklist matching flags every submitted name equally, with no sense of context. Two gaps go unnoticed at once: a partial or reformatted name isn't recognized as the same person, and a minor offense gets treated with exactly the same urgency as a major one. A compliance team we looked at spent about 15 minutes of manual review per alert and still carried high rates of both false negatives and false positives.</p>
+    <p class="lede">Concretely: a partial-name match tied to a minor offense gets the identical flag as an exact-name match tied to a terrorism link. A matcher with no sense of context can't tell those apart, so both cost the same review time — and the more dangerous case doesn't get prioritized.</p>
+    <ol class="rule-list">
+      <li data-n="1"><b>Identity.</b> Fuzzy name matching (TF-IDF) instead of exact-string blacklist comparison.</li>
+      <li data-n="2"><b>Context.</b> Granular crime-severity tiers instead of one flat "match / no match" category.</li>
+      <li data-n="3"><b>Verification.</b> Biometric refutation that auto-clears genuine non-matches instead of escalating every namesake.</li>
+    </ol>
+    <div class="tag-row"><span class="tag">Target: &lt;2 min / alert</span><span class="tag">Target: zero high-stakes misses</span></div>
+  </div>
+</section>
+
+<section id="data">
+  <div class="wrap">
+    <h2 class="section-title">Data</h2>
+    <div class="bench-grid">
+      <div class="bench-row">
+        <div class="bench-cat">Primary — INTERPOL Red Notices</div>
+        <div class="bench-items"><span class="bench-tag">OpenSanctions API</span><span class="bench-tag">6,479 searchable targets</span><span class="bench-tag">Sanctions text, age, gender</span></div>
+      </div>
+      <div class="bench-row">
+        <div class="bench-cat">Secondary — synthetic clients</div>
+        <div class="bench-items"><span class="bench-tag">Privacy-preserving, no real client PII</span><span class="bench-tag">Trains the biometric refutation model</span></div>
+      </div>
+      <div class="bench-row">
+        <div class="bench-cat">Image sources</div>
+        <div class="bench-items"><span class="bench-tag">6,479 images, one per fugitive</span><span class="bench-tag">Via OpenSanctions, sourced from interpol.int</span></div>
+      </div>
+    </div>
+    <p class="lede">The dataset is drawn from the real, publicly-listed 2026 Red Notice roster — among the names on it are already-public fugitives such as Ruja Ignatova and Dawood Ibrahim Kaskar.</p>
+  </div>
+</section>
+
+<section id="exploration">
+  <div class="wrap">
+    <h2 class="section-title">What the data actually looks like</h2>
+    <p class="lede">Before building anything, it's worth checking what population the model would actually be trained on.</p>
+    <figure class="screenshot-figure">
+      <img class="screenshot" src="../img/interpol/data-exploration.png" alt="Four charts: age distribution skewed right with mean 42.9 and median 40.0; age today by crime type as overlapping boxplots across genders; a bar chart showing Tier 1 Critical vastly outnumbering Tier 2 High and Tier 3 Medium; and a bar chart of crime types by total incidents, led by mixed-category offenses">
+      <figcaption class="screenshot-caption">Age skews toward late 30s–40s, Tier 1 Critical dominates the population, and crime-type distributions overlap heavily across age and gender.</figcaption>
+    </figure>
+    <ol class="rule-list">
+      <li data-n="1"><b>Mixed-category offenders dominate.</b> The model has to handle multi-label crime behaviour, not assume a clean single category per record.</li>
+      <li data-n="2"><b>Age peaks in the late 30s–40s.</b> Consistent with criminological research showing serious, organised crime offending peaks later in life than general street crime.</li>
+      <li data-n="3"><b>Tier 1 Critical vastly outnumbers other tiers.</b> INTERPOL's mandate prioritises the most dangerous transnational criminals — the model is trained on a high-threat population, not a general offender sample.</li>
+      <li data-n="4"><b>Age and gender alone don't separate risk profiles.</b> Distributions overlap too heavily across crime types — additional features are required to differentiate meaningfully.</li>
+    </ol>
+  </div>
+</section>
+
+<section id="architecture">
+  <div class="wrap">
+    <h2 class="section-title">Four pillars, one score, one veto</h2>
+    <p class="lede">Client data (name, photo, gender) feeds two things in parallel: a biometric prediction, and four weighted pillars — Identity (40%), Crime Severity (30%), Hidden Linkage (20%), and Visual (10%) — that sum into a criticality score from 0.0 to 1.0, bucketed into Critical, High, Low, or Safe.</p>
+    <figure class="screenshot-figure">
+      <img class="screenshot" src="../img/interpol/architecture.png" alt="Compliance ML architecture: Input X (client data - name, photo, gender) feeds Biometric Prediction (ensemble ML model, refutation), which combines with four weighted pillars - Identity 40% (semantic similarity TF-IDF), Crime Severity 30% (multi-label classification), Hidden Linkage 20% (graph link prediction), Visual 10% (computer vision) - into Output Y, a criticality score from 0.0 to 1.0 bucketed as Critical, High, Low, or Safe">
+      <figcaption class="screenshot-caption">Four weighted pillars produce an additive score — but biometric refutation sits outside that sum entirely.</figcaption>
+    </figure>
+    <div class="callout"><b>Why refutation is a veto, not a weight:</b> if the biometric prediction detects biological dissonance — the wrong gender or an implausible age for the claimed identity — it overrides the additive score entirely, rather than acting as just one more weighted input alongside the other three.</div>
+  </div>
+</section>
+
+<section id="identity">
+  <div class="wrap">
+    <h2 class="section-title">Pillar 1: Identity (40%) — semantic similarity via TF-IDF</h2>
+    <p class="lede">Each fugitive name is broken into overlapping character n-grams (2–4 characters); TF-IDF weighs each n-gram by how distinctive it is across all 6,479 names. A submitted name gets vectorized the same way and ranked against every fugitive vector by cosine similarity — the top match passes forward as the identity pillar's score.</p>
+    <div class="code-panel">
+<span class="cmt"># illustrative — structure of the matching step, not real records</span>
+query = <span class="str">"A. [Surname]"</span>
+candidates = {
+    <span class="str">"[SURNAME] [FIRST NAME]"</span>:      0.91,  <span class="cmt"># high — likely match</span>
+    <span class="str">"[SURNAME] [ALT FIRST NAME]"</span>:  0.84,  <span class="cmt"># high — plausible match</span>
+    <span class="str">"[UNRELATED NAME]"</span>:            0.02,  <span class="cmt"># low — different person</span>
+}
+    </div>
+    <p class="lede">TF-IDF was benchmarked against SBERT, a modern neural embedding model, on 1,000 perturbed name queries before committing to it — the character-level approach won on 6 of 7 metrics.</p>
+    <table class="data-table">
+      <thead><tr><th>Metric</th><th>TF-IDF</th><th>SBERT</th><th>Winner</th></tr></thead>
+      <tbody>
+        <tr><td class="label">MAP</td><td class="best">0.8857</td><td>0.8801</td><td>TF-IDF</td></tr>
+        <tr><td class="label">Recall@1</td><td class="best">0.8160</td><td>0.8130</td><td>TF-IDF</td></tr>
+        <tr><td class="label">Recall@3</td><td class="best">0.9540</td><td>0.9430</td><td>TF-IDF</td></tr>
+        <tr><td class="label">Recall@5</td><td class="best">0.9690</td><td>0.9640</td><td>TF-IDF</td></tr>
+        <tr><td class="label">Mean positive similarity</td><td>0.8754</td><td class="best">0.8884</td><td>SBERT</td></tr>
+        <tr><td class="label">Mean negative similarity</td><td class="best">0.0213</td><td>0.2984</td><td>TF-IDF</td></tr>
+        <tr><td class="label">Positive–negative separation</td><td class="best">0.8541</td><td>0.5901</td><td>TF-IDF ✓</td></tr>
+      </tbody>
+    </table>
+    <p class="lede">The separation between genuine and unrelated matches (0.854 vs. 0.590) is what decided it — character-level matching handles name variants more robustly than a neural embedding tuned for semantic, not orthographic, similarity.</p>
+  </div>
+</section>
+
+<section id="severity">
+  <div class="wrap">
+    <h2 class="section-title">Pillar 2: Crime severity (30%) — crime-type classification</h2>
+    <p class="lede">6,479 fugitive records had sanctions text but no crime labels — automated categorisation was needed for compliance risk routing. Three unsupervised methods (BART zero-shot, LDA latent themes, K-Means clustering) built a training set through 3-way agreement, refined by two rounds of human evaluation, before a supervised RoBERTa classifier became the final model.</p>
+    <figure class="screenshot-figure">
+      <img class="screenshot" src="../img/interpol/pipeline-flow.png" alt="Pipeline flow: data prep leads to unsupervised learning (BART v1, LDA, K-Means, BART v2) then label concept mapping then agreement analysis (R1, R2), producing training data that feeds RoBERTa experiments 1-3 and 4-5, validated against human evaluation rounds R1 and R2, producing predictions. Final counts: 6,479 final output, 3,075 unsupervised training rows, 3,087 RoBERTa predicted, 317 human-evaluation test rows.">
+      <figcaption class="screenshot-caption">Unsupervised methods build the training set; two rounds of human evaluation refine the label set before the final RoBERTa classifier.</figcaption>
+    </figure>
+    <table class="data-table">
+      <thead><tr><th>Experiment</th><th>Label source</th><th>LR</th><th>Epochs</th><th>Accuracy</th><th>Macro F1</th></tr></thead>
+      <tbody>
+        <tr><td class="label">1</td><td>BART v1 + LDA</td><td>2e-5</td><td>5</td><td>0.831</td><td>0.83</td></tr>
+        <tr><td class="label">2</td><td>BART v1 + LDA</td><td>1e-5</td><td>3</td><td>0.825</td><td>0.83</td></tr>
+        <tr><td class="label">3</td><td>BART v1 + LDA</td><td>1e-5</td><td>5</td><td>0.828</td><td>0.83</td></tr>
+        <tr><td class="label">4 ★</td><td>BART v1 + LDA</td><td>2e-5</td><td>5</td><td class="best">0.922</td><td class="best">0.91</td></tr>
+        <tr><td class="label">5</td><td>BART v2 + LDA (lem.)</td><td>2e-5</td><td>5</td><td>0.912</td><td>0.90</td></tr>
+      </tbody>
+    </table>
+    <table class="data-table">
+      <thead><tr><th>Category</th><th>Count</th><th>%</th><th>Severity</th><th>Risk tier</th></tr></thead>
+      <tbody>
+        <tr><td class="label">Terrorism</td><td>1,580</td><td>24.4%</td><td>1.0</td><td>Tier 1 — Critical</td></tr>
+        <tr><td class="label">Homicide</td><td>1,319</td><td>20.4%</td><td>0.9</td><td>Tier 1 — Critical</td></tr>
+        <tr><td class="label">Sexual crime</td><td>459</td><td>7.1%</td><td>0.8</td><td>Tier 2 — High</td></tr>
+        <tr><td class="label">Armed formation</td><td>1,592</td><td>24.6%</td><td>0.7</td><td>Tier 2 — High</td></tr>
+        <tr><td class="label">Assault</td><td>826</td><td>12.7%</td><td>0.7</td><td>Tier 2 — High</td></tr>
+        <tr><td class="label">Narcotics</td><td>388</td><td>6.0%</td><td>0.7</td><td>Tier 2 — High</td></tr>
+        <tr><td class="label">Financial crime</td><td>315</td><td>4.9%</td><td>0.5</td><td>Tier 3 — Medium</td></tr>
+      </tbody>
+    </table>
+    <div class="callout"><b>The known limitation:</b> terrorism recall lands at 0.82 — roughly 1 in 5 terrorism cases may be misclassified into an adjacent category. Confidence-based routing for low-confidence terrorism calls is flagged as future work, since that's the category where a miss matters most.</div>
+  </div>
+</section>
+
+<section id="visual">
+  <div class="wrap">
+    <h2 class="section-title">Pillar 3: Visual (10%) — disguise-robust embeddings</h2>
+    <p class="lede">Facial landmarks (eyes, cheeks, jawline, forehead, chin) are detected, and synthetic disguise assets — a mask, bandana, wig, sunglasses, spectacles, beard, or beanie — are geometrically aligned onto them, to test whether an embedding model can still recognise the same identity underneath.</p>
+    <p class="lede">The baseline is Face-MAE — a masked-autoencoder, self-supervised Vision Transformer trained on large facial datasets, producing a 762-D embedding. The fine-tuned version, Disguised-Face-MAE, adds a dense + batch-norm head trained with supervised contrastive loss on a real disguised-face dataset: same-identity pairs get pulled together in embedding space, different identities get pushed apart.</p>
+    <table class="data-table">
+      <thead><tr><th>Metric</th><th>Baseline (Face-MAE)</th><th>Fine-tuned (Disguised-Face-MAE)</th></tr></thead>
+      <tbody>
+        <tr><td class="label">μ disguised-match (genuine similarity)</td><td>0.9580</td><td class="best">0.9631</td></tr>
+        <tr><td class="label">μ stranger (imposter similarity)</td><td>0.8394</td><td class="best">0.5896</td></tr>
+        <tr><td class="label">Separation gap, Δ</td><td>0.1185</td><td class="best">0.3735</td></tr>
+      </tbody>
+    </table>
+    <p class="lede">Fine-tuning barely moved the genuine-match score (already near-ceiling) but more than tripled the separation gap — the fine-tuned model got dramatically better at telling two different people apart, which is the harder and more important half of the problem. At inference, a sigmoid over cosine similarity, centered on the midpoint between the two means, converts a raw similarity score into the visual pillar's contribution.</p>
+  </div>
+</section>
+
+<section id="linkage">
+  <div class="wrap">
+    <h2 class="section-title">Pillar 4: Hidden linkage (20%) — graph link prediction</h2>
+    <p class="lede">The question this pillar answers: how structurally connected is this entity to suspicious clusters? A graph of all 6,479 fugitives gets an edge between two records whenever they share both a country and a crime type — two 2-layer GNNs (GCN and GraphSAGE) were trained on that graph for link prediction.</p>
+    <table class="data-table">
+      <thead><tr><th>Metric</th><th>GCN</th><th>GraphSAGE</th><th>Winner</th></tr></thead>
+      <tbody>
+        <tr><td class="label">AUC</td><td>0.9971</td><td class="best">0.9978</td><td>GraphSAGE ✓</td></tr>
+        <tr><td class="label">Recall @0.5</td><td class="best">0.9999</td><td>0.9998</td><td>GCN (marginal)</td></tr>
+        <tr><td class="label">Hits@10</td><td>0.9193</td><td class="best">0.9194</td><td>GraphSAGE ✓</td></tr>
+        <tr><td class="label">Hits@50</td><td>0.9194</td><td>0.9194</td><td>Tie</td></tr>
+        <tr><td class="label">Hits@100</td><td>0.9194</td><td>0.9194</td><td>Tie</td></tr>
+      </tbody>
+    </table>
+    <p class="lede">GraphSAGE was selected for its higher AUC and its inductive capability — it generalises to fugitives not seen during training, which GCN can't do natively.</p>
+    <div class="code-panel">
+<span class="cmt"># illustrative — the scoring formula and a worked example, no real case</span>
+Hidden Linkage = Σ (rank_weight / weight_sum × link_score × crime_severity)
+
+<span class="cmt"># rank 1 neighbour, weight 0.50, link 1.00, severity 1.0 (terrorism)</span>
+0.50 × 1.00 × 1.0 = 0.500
+<span class="cmt"># rank 2 neighbour, weight 0.30, link 0.99, severity 0.7 (armed formation)</span>
+0.30 × 0.99 × 0.7 = 0.209
+<span class="cmt"># rank 3 neighbour, weight 0.20, link 0.90, severity 0.7 (armed formation)</span>
+0.20 × 0.90 × 0.7 = 0.126
+
+Hidden Linkage = 0.500 + 0.209 + 0.126 = 0.835
+    </div>
+    <p class="lede">A case like that is deeply embedded in a terrorism-linked cluster — the network signal alone can drive escalation even when identity and biometric checks come back inconclusive.</p>
+  </div>
+</section>
+
+<section id="refutation">
+  <div class="wrap">
+    <h2 class="section-title">Biometric refutation, the veto</h2>
+    <p class="lede">100,000 synthetic rows were generated to train this model: ~6,000 real fugitives with no variation, ~4,000 synthetic "bad actors" with perturbed names (swapped, shuffled, dropped, or duplicated) and slightly altered height, age, and hair/eye colour, plus 50% "good actors" with fully randomized identity and 50% good actors who — deliberately — share a fugitive's exact name. That last group is the hardest and most important case: an innocent person who happens to have the same name as someone on the list.</p>
+    <figure class="screenshot-figure">
+      <img class="screenshot" src="../img/interpol/feature-importance.png" alt="Four bar charts of key feature importance (predictive power via mean accuracy drop) for Logistic Regression, Decision Tree, Random Forest, and XGBoost, each showing age_difference and name_similarity as by far the two most predictive features, ahead of weight/height difference, gender, eye colour, and hair colour">
+      <figcaption class="screenshot-caption">Across every classical model, age difference and name similarity dominate feature importance.</figcaption>
+    </figure>
+    <table class="data-table">
+      <thead><tr><th>Model</th><th>F2</th><th>F1</th><th>Accuracy</th><th>Precision</th><th>Recall</th><th>FPR</th></tr></thead>
+      <tbody>
+        <tr><td class="label">Logistic Regression</td><td>0.8891</td><td>0.8694</td><td>0.9729</td><td>0.8385</td><td>0.9027</td><td>0.0193</td></tr>
+        <tr><td class="label">Decision Tree</td><td>0.8756</td><td>0.8415</td><td>0.9661</td><td>0.7902</td><td>0.8999</td><td>0.0265</td></tr>
+        <tr><td class="label">Random Forest</td><td class="best">0.9708</td><td class="best">0.9385</td><td class="best">0.9870</td><td class="best">0.8892</td><td class="best">0.9936</td><td class="best">0.0138</td></tr>
+        <tr><td class="label">XGBoost</td><td>0.9702</td><td>0.9376</td><td>0.9868</td><td>0.8879</td><td>0.9932</td><td>0.0139</td></tr>
+      </tbody>
+    </table>
+    <figure class="screenshot-figure">
+      <img class="screenshot" src="../img/interpol/pr-curve.png" alt="Precision-recall curves for the four classical models: Logistic Regression (AUC-PR 0.91), Decision Tree (AUC-PR 0.86), Random Forest (AUC-PR 0.98), XGBoost (AUC-PR 0.97) — Random Forest and XGBoost trace nearly identical curves well above the other two">
+      <figcaption class="screenshot-caption">Random Forest and XGBoost separate cleanly from Logistic Regression and Decision Tree on precision-recall.</figcaption>
+    </figure>
+    <div class="callout"><b>Where the best classical model still struggles:</b> Random Forest has difficulty identifying bad actors who share a fugitive's exact name and have only a small age gap — exactly the case the synthetic data was designed to stress-test. That's what motivated trying an ensemble.</div>
+    <figure class="screenshot-figure">
+      <img class="screenshot" src="../img/interpol/ensemble-diagram.png" alt="Two ensemble diagrams: soft-voting combines three models' output probabilities by averaging them (e.g. 70%/40%/90% averaging to 66.6%) rather than a majority vote; stacking trains independent base models (Ridge, KNNRegressor, DecisionTreeRegressor, SVR, etc.), each predicting on x, then feeds their predictions into a final LinearRegression meta-model trained via k-fold cross-validation to produce y_pred">
+      <figcaption class="screenshot-caption">Soft-voting averages model confidence; stacking learns a meta-model over base-model predictions. Logistic Regression, Random Forest, and XGBoost were combined for diversity.</figcaption>
+    </figure>
+    <figure class="screenshot-figure">
+      <img class="screenshot" src="../img/interpol/confusion-matrices.png" alt="Three confusion matrices side by side: Random Forest alone (20 false negatives), Ensemble Soft-Voting (11 false negatives), Ensemble Stacking (15 false negatives) — soft-voting cuts false negatives nearly in half versus the single best classical model">
+      <figcaption class="screenshot-caption">Soft-voting nearly halves false negatives versus Random Forest alone — the false negative is the catastrophic error class in this system.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section id="system">
+  <div class="wrap">
+    <h2 class="section-title">The full system, end to end</h2>
+    <p class="lede">Client data comes in and hits biometric prediction first. A match (≥0.5) short-circuits everything else: final risk is set to 1.0, CRITICAL, freeze and escalate — no need to run the additive scoring at all. A mismatch (&lt;0.5) routes into the four-pillar criticality score instead.</p>
+    <table class="data-table">
+      <thead><tr><th>Risk tier</th><th>Score range</th><th>Action</th></tr></thead>
+      <tbody>
+        <tr><td class="label">Critical</td><td>0.75–1.00</td><td>Freeze + escalate to compliance officer</td></tr>
+        <tr><td class="label">High risk</td><td>0.50–0.74</td><td>Senior analyst review within 24hr</td></tr>
+        <tr><td class="label">Review</td><td>0.25–0.49</td><td>Junior analyst flag, monitor 30 days</td></tr>
+        <tr><td class="label">Low risk</td><td>0.00–0.24</td><td>Pass, log to audit trail</td></tr>
+      </tbody>
+    </table>
+
+    <h3 class="sub">Validation: 24 synthetic test cases</h3>
+    <p class="lede">Five groups, deliberately ordered from easiest to hardest: an exact name with a full biometric match, a name with a typo but close biometrics, an exact name with a different person's biometrics, a partial name overlap with unrelated biometrics, and a very short name with an unrelated biometric profile. 9 cases are true fugitives (the first two groups); 15 are innocents (the last three) — the innocents deliberately include the hardest case a matcher can face: an exact name collision with a genuine fugitive.</p>
+  </div>
+</section>
+
+<section id="results">
+  <div class="wrap">
+    <h2 class="section-title">Validation results</h2>
+    <table class="data-table">
+      <thead><tr><th>Threshold</th><th>TP</th><th>TN</th><th>FP</th><th>FN</th><th>Recall</th><th>Precision</th><th>Accuracy</th></tr></thead>
+      <tbody>
+        <tr><td class="label">Critical (≥0.75)</td><td>7</td><td>13</td><td>2</td><td>2</td><td>77.8%</td><td>77.8%</td><td>83.3%</td></tr>
+        <tr><td class="label">High risk+ (≥0.50)</td><td>9</td><td>2</td><td>13</td><td>0</td><td class="best">100%</td><td>40.9%</td><td>45.8%</td></tr>
+        <tr><td class="label">Review+ (≥0.25)</td><td>9</td><td>0</td><td>15</td><td>0</td><td class="best">100%</td><td>37.5%</td><td>37.5%</td></tr>
+      </tbody>
+    </table>
+    <div class="callout"><b>Zero fugitives missed at the operational threshold:</b> 100% recall at High Risk+, with the two borderline true-fugitive cases scoring 0.73 and 0.67 — both comfortably above the 0.50 escalation cutoff, so neither one slipped through as a false negative.</div>
+
+    <h3 class="sub">Why innocents still get flagged</h3>
+    <table class="data-table">
+      <thead><tr><th>Group</th><th>Cases</th><th>Bio rejected?</th><th>Final range</th><th>Tier</th><th>Why still flagged</th></tr></thead>
+      <tbody>
+        <tr><td class="label">Exact same name</td><td>3</td><td>Yes (≤0.03)</td><td>0.69–0.92</td><td>Critical / High</td><td>Identical name + crime severity + hidden linkage</td></tr>
+        <tr><td class="label">Partial name overlap</td><td>6</td><td>Yes (≤0.01)</td><td>0.54–0.68</td><td>High risk</td><td>Partial surname overlap + crime severity</td></tr>
+        <tr><td class="label">Short name</td><td>6</td><td>Yes (=0.00)</td><td>0.48–0.68</td><td>Review / High</td><td>Crime severity + hidden linkage push score up</td></tr>
+      </tbody>
+    </table>
+    <ol class="rule-list">
+      <li data-n="1"><b>Over-flagging is by design.</b> Compliance prefers false positives over missed fugitives — that trade-off is intentional, not a bug.</li>
+      <li data-n="2"><b>Biometric prediction works as intended.</b> It rejected all 15 innocents outright and confirmed 7 of 9 true fugitives without needing the criticality score at all.</li>
+      <li data-n="3"><b>The exact-same-name case is the hardest.</b> Identical names plus similar identity signals can overwhelm the biometric rejection on their own, pushing an innocent person's score into High Risk territory.</li>
+      <li data-n="4"><b>Tuning opportunity.</b> Increasing the biometric weight, or reducing the influence of identity, crime severity, and hidden linkage similarity, would cut false High-Risk flags — a direct lever for the precision/recall trade-off.</li>
+    </ol>
+  </div>
+</section>
+
+<section id="chatbot">
+  <div class="wrap">
+    <h2 class="section-title">A conversational front end</h2>
+    <p class="lede">The same four-pillar pipeline sits behind INTERPOL IRIS — a Streamlit interface, backed by a GPT-class model, that lets an analyst screen a client name or ask a question conversationally instead of reading a raw dashboard.</p>
+  </div>
+</section>
+
+<section id="stack">
+  <div class="wrap">
+    <h2 class="section-title">Stack</h2>
+    <div class="tag-row">
+      <span class="tag">TF-IDF semantic similarity</span>
+      <span class="tag">RoBERTa fine-tuning</span>
+      <span class="tag">Graph neural networks (GraphSAGE)</span>
+      <span class="tag">Vision Transformer (Face-MAE + SupConLoss)</span>
+      <span class="tag">Ensemble ML (soft-voting &amp; stacking)</span>
+      <span class="tag">RAG chatbot</span>
+    </div>
+  </div>
+</section>
+
+</article>
+
+<footer>
+  <div class="wrap">
+    <p>Akshit Karanam — Singapore</p>
+    <a href="../index.html#projects">← Back to all projects</a>
+  </div>
+</footer>
+
+</body>
+</html>
