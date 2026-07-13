@@ -1,0 +1,81 @@
+/* Design tokens + primitives shared by every page. Page-specific layout
+   (hero, timeline, project sections, etc.) lives in home.css / project.css. */
+
+:root{
+  --bg:#F6F7F4;
+  --surface:#FFFFFF;
+  --ink:#12201C;
+  --ink-soft:#4B564F;
+  --ink-faint:#8B948C;
+  --line:#DEE2DA;
+  --teal:#0F6E56;
+  --teal-dim:#E1F5EE;
+  --navy:#0C2340;
+  --navy-dim:#DDE4EC;
+  --amber:#BA7517;
+  --amber-dim:#FAEEDA;
+  --coral:#D85A30;
+  --radius:10px;
+  --maxw:920px;
+}
+
+*{box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--ink);
+  font-family:'Inter',sans-serif;
+  font-size:16px;
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+a{color:var(--teal);}
+h1,h2,h3{font-family:'Space Grotesk',sans-serif;margin:0;letter-spacing:-0.01em;}
+.mono{font-family:'IBM Plex Mono',monospace;}
+.wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px;}
+
+/* NAV (shared chrome; page-specific nav content sits in home.css/project.css) */
+nav{
+  position:sticky;top:0;z-index:20;
+  background:rgba(246,247,244,0.88);
+  backdrop-filter:blur(8px);
+  border-bottom:1px solid var(--line);
+}
+nav .wrap{display:flex;align-items:center;justify-content:space-between;height:56px;}
+nav .brand{font-family:'Space Grotesk';font-weight:600;font-size:15px;text-decoration:none;color:var(--ink);}
+
+.chip{
+  font-family:'IBM Plex Mono';font-size:12px;color:var(--ink-soft);
+  border:1px solid var(--line);padding:5px 11px;border-radius:6px;background:var(--surface);
+}
+
+/* SIGNATURE: coverage bar, used on the home project cards and case-study heroes */
+.cov{display:flex;gap:3px;margin:14px 0 4px;}
+.cov span{height:6px;flex:1;border-radius:2px;background:var(--line);}
+.cov span.f-teal{background:var(--teal);}
+.cov span.f-navy{background:var(--navy);}
+.cov span.f-amber{background:var(--amber);}
+.cov-label{font-family:'IBM Plex Mono';font-size:11px;color:var(--ink-faint);}
+
+.kicker{
+  font-family:'IBM Plex Mono';font-size:12px;color:var(--teal);
+  text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px;
+  display:flex;align-items:center;gap:8px;
+}
+.kicker .dot{width:6px;height:6px;border-radius:50%;background:var(--teal);}
+
+section{padding:64px 0;border-top:1px solid var(--line);scroll-margin-top:70px;}
+h2.section-title{font-size:clamp(24px,3.4vw,30px);margin-bottom:28px;}
+
+.tag-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:16px;}
+.tag{
+  font-family:'IBM Plex Mono';font-size:11px;color:var(--navy);background:var(--navy-dim);
+  padding:3px 8px;border-radius:5px;
+}
+
+footer{padding:40px 0 60px;}
+footer .wrap{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;}
+footer p{color:var(--ink-faint);font-size:13px;margin:0;}
+footer a{color:var(--ink-soft);text-decoration:none;font-size:13px;}
+footer a:hover{color:var(--teal);}

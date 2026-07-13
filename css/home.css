@@ -1,0 +1,101 @@
+/* Home page only. Shared tokens/primitives (nav chrome, .cov, .kicker,
+   .tag, section, footer) live in base.css. */
+
+nav ul{list-style:none;display:flex;gap:22px;margin:0;padding:0;}
+nav a{color:var(--ink-soft);text-decoration:none;font-size:14px;font-weight:500;}
+nav a:hover{color:var(--teal);}
+nav .navlinks{display:flex;}
+@media (max-width:640px){ nav .navlinks{display:none;} }
+
+/* HERO */
+header.hero{padding:88px 0 56px;}
+.eyebrow{
+  display:inline-flex;align-items:center;gap:8px;
+  font-family:'IBM Plex Mono';font-size:12px;color:var(--teal);
+  background:var(--teal-dim);padding:4px 10px;border-radius:20px;
+  margin-bottom:22px;
+}
+.eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--teal);}
+h1.name{font-size:clamp(36px,6vw,54px);font-weight:700;line-height:1.05;}
+.role{font-size:clamp(18px,2.4vw,22px);color:var(--ink-soft);font-weight:500;margin-top:10px;}
+.thesis{max-width:640px;font-size:17px;color:var(--ink-soft);margin-top:22px;}
+.hero-meta{display:flex;flex-wrap:wrap;gap:10px;margin-top:28px;}
+.hero-links{margin-top:30px;display:flex;gap:14px;flex-wrap:wrap;}
+.btn{
+  font-size:14px;font-weight:500;text-decoration:none;
+  padding:10px 18px;border-radius:8px;display:inline-flex;align-items:center;gap:6px;
+}
+.btn-primary{background:var(--navy);color:#fff;}
+.btn-primary:hover{background:#08182b;}
+.btn-ghost{border:1px solid var(--line);color:var(--ink);}
+.btn-ghost:hover{border-color:var(--teal);color:var(--teal);}
+
+/* ABOUT */
+.about-grid{display:grid;grid-template-columns:1.3fr 1fr;gap:40px;}
+@media (max-width:720px){ .about-grid{grid-template-columns:1fr;} }
+.about-body p{color:var(--ink-soft);font-size:15.5px;}
+.fact-list{display:flex;flex-direction:column;gap:14px;}
+.fact{border-left:2px solid var(--teal);padding-left:14px;}
+.fact .k{font-family:'IBM Plex Mono';font-size:11px;color:var(--ink-faint);text-transform:uppercase;}
+.fact .v{font-size:14.5px;font-weight:500;margin-top:2px;}
+
+/* EXPERIENCE TIMELINE */
+.timeline{position:relative;padding-left:28px;}
+.timeline::before{
+  content:'';position:absolute;left:5px;top:6px;bottom:6px;width:1px;background:var(--line);
+}
+.tl-item{position:relative;padding-bottom:36px;}
+.tl-item:last-child{padding-bottom:0;}
+.tl-item::before{
+  content:'';position:absolute;left:-28px;top:5px;width:11px;height:11px;border-radius:50%;
+  background:var(--surface);border:2px solid var(--teal);
+}
+.tl-item.current::before{background:var(--teal);}
+.tl-head{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;}
+.tl-role{font-weight:600;font-size:16px;}
+.tl-date{font-family:'IBM Plex Mono';font-size:12px;color:var(--ink-faint);}
+.tl-org{color:var(--ink-soft);font-size:14px;margin-top:2px;}
+.tl-list{margin:12px 0 0;padding-left:18px;color:var(--ink-soft);font-size:14.5px;}
+.tl-list li{margin-bottom:6px;}
+.badge-current{
+  font-family:'IBM Plex Mono';font-size:10.5px;color:var(--teal);background:var(--teal-dim);
+  padding:2px 8px;border-radius:12px;
+}
+
+/* PROJECTS */
+.proj-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+@media (max-width:720px){ .proj-grid{grid-template-columns:1fr;} }
+.card{
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+  padding:22px;display:flex;flex-direction:column;
+}
+.card.wide{grid-column:1 / -1;}
+.card h3{font-size:17px;margin-bottom:6px;}
+.card p{color:var(--ink-soft);font-size:14.5px;margin:8px 0 0;}
+.card-link{
+  margin-top:16px;display:inline-flex;align-items:center;gap:6px;
+  font-family:'IBM Plex Mono';font-size:12.5px;font-weight:500;color:var(--teal);text-decoration:none;
+}
+.card-link:hover{text-decoration:underline;}
+.card-link .arrow{transition:transform .15s ease;}
+.card-link:hover .arrow{transform:translateX(3px);}
+
+/* SKILLS */
+.skill-cols{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;}
+@media (max-width:720px){ .skill-cols{grid-template-columns:repeat(2,1fr);} }
+.skill-col h4{
+  font-family:'IBM Plex Mono';font-size:11px;color:var(--ink-faint);text-transform:uppercase;
+  margin-bottom:10px;letter-spacing:0.04em;
+}
+.skill-col ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px;}
+.skill-col li{font-size:14px;}
+
+/* EDUCATION */
+.edu-item{display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;padding:16px 0;border-bottom:1px solid var(--line);}
+.edu-item:last-child{border-bottom:none;}
+.edu-name{font-weight:600;font-size:15px;}
+.edu-sub{color:var(--ink-soft);font-size:14px;margin-top:2px;}
+.edu-date{font-family:'IBM Plex Mono';font-size:12px;color:var(--ink-faint);white-space:nowrap;}
+
+/* FOOTER (home has multiple links, so space them out) */
+footer a{margin-left:16px;}

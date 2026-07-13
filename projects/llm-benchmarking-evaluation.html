@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LLM Benchmarking &amp; Evaluation — Akshit Karanam</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/base.css">
+<link rel="stylesheet" href="../css/project.css">
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a class="back" href="../index.html#projects">← Akshit Karanam</a>
+    <a class="brand" href="../index.html">AK</a>
+  </div>
+</nav>
+
+<header class="hero wrap">
+  <div class="kicker"><span class="dot"></span>Case Study</div>
+  <h1 class="title">LLM Benchmarking &amp; Evaluation</h1>
+  <p class="dek">Deciding which model gets used, and building the evidence to back that decision — a benchmark retrieval agent, an Elo-style ranking system, and the safety review that sits alongside both.</p>
+  <div class="meta-row">
+    <span class="chip">MSD International — Research AI Scientist → AI Engineer</span>
+    <span class="chip">AI Safety, Security &amp; Ethics group</span>
+    <span class="chip">Jan 2025 — Present</span>
+  </div>
+  <div class="cov"><span class="f-teal"></span><span class="f-teal"></span><span class="f-teal"></span><span class="f-navy"></span><span class="f-navy"></span><span></span></div>
+  <div class="cov-label">coverage across 11 benchmark categories, incomplete by design</div>
+</header>
+
+<article>
+
+<section id="problem">
+  <div class="wrap">
+    <h2 class="section-title">The problem</h2>
+    <p class="lede">Every few weeks a new model claims to beat the last one. The claim usually comes with a cherry-picked chart. Before any team at MSD adopts a model for a real workflow — document translation, clinical case intake, regulatory QC — someone has to answer a less flattering question: <b>on the benchmarks that actually matter to us, does this model hold up, and against what did we check?</b></p>
+    <p class="lede">That's the brief I picked up as a Research AI Scientist and carried forward into my current AI Engineer role: build a way to compare LLMs that's repeatable, sourced, and specific to the categories of work the company actually does — not just whichever benchmark the vendor's press release led with.</p>
+  </div>
+</section>
+
+<section id="ranking">
+  <div class="wrap">
+    <h2 class="section-title">Elo-style ranking &amp; model cards</h2>
+    <p class="lede">The first piece was a ranking layer, not a leaderboard. Raw benchmark scores don't compose well across categories — a model that's 3 points ahead on MMLU and 8 points behind on GAIA doesn't have an obvious "winner." I designed an Elo-style (Bradley-Terry) system that runs head-to-head comparisons within each benchmark category and produces a relative ranking, the same mechanism chess ratings and LMSYS Arena use for exactly this kind of intransitive comparison problem.</p>
+    <p class="lede">Every model that goes through the process gets a model card: a short writeup of performance trends, where it's strong or weak by domain, and a read on enterprise readiness — the kind of thing a team lead can skim in two minutes before deciding whether to pilot a model. Those cards, plus the underlying scores, feed interactive Power BI dashboards so stakeholders can filter by domain and by core capability (reasoning, coding, multilingual, safety) instead of asking me for a one-off comparison every time.</p>
+  </div>
+</section>
+
+<section id="agent">
+  <div class="wrap">
+    <h2 class="section-title">The benchmark retrieval agent</h2>
+    <p class="lede">Ranking and model cards are only as good as the numbers underneath them, and those numbers don't sit in one place — they're scattered across vendor blog posts, technical report PDFs, and public leaderboards, and they get quietly revised after launch. Chasing that by hand doesn't scale past a couple of models. So the actual data collection is a retrieval agent: given a model name, it works through 11 benchmark categories, searches and fetches until it finds a reliable score for each, and returns one structured record.</p>
+
+    <h3 class="sub">Internal loop</h3>
+    <p class="lede" style="margin-bottom:0;">Receive request → cycle through each benchmark → search → fetch → rank by trust → found or retry → emit structured JSON.</p>
+    <div class="loop">
+      <div class="loop-step">
+        <div class="n">01</div>
+        <div class="t">Receive request</div>
+        <div class="d">Model name comes in; agent works through the 11-category list one benchmark at a time.</div>
+      </div>
+      <div class="loop-arrow">→</div>
+      <div class="loop-step">
+        <div class="n">02</div>
+        <div class="t">Search</div>
+        <div class="d">Up to 10 reformulated queries per benchmark — vendor name, "results" vs "eval", technical-report phrasing, model-card phrasing.</div>
+      </div>
+      <div class="loop-arrow">→</div>
+      <div class="loop-step">
+        <div class="n">03</div>
+        <div class="t">Fetch</div>
+        <div class="d">Full page pulled before any number is recorded — never trust a search snippet alone. PDFs parsed for text, not skipped.</div>
+      </div>
+      <div class="loop-arrow">→</div>
+      <div class="loop-step">
+        <div class="n">04</div>
+        <div class="t">Rank by trust</div>
+        <div class="d">Official source &gt; recognized public leaderboard &gt; independent eval. Disagreement gets noted, not silently resolved.</div>
+      </div>
+    </div>
+    <div class="loop-branch">
+      <div class="loop-step branch-yes">
+        <div class="n">✓ found</div>
+        <div class="t">Record score + source</div>
+        <div class="d">Score, unit, source URL, source type, and any discrepancy notes go into the report.</div>
+      </div>
+      <div class="loop-step branch-no">
+        <div class="n">✗ not found</div>
+        <div class="t">Mark missing, move on</div>
+        <div class="d">After 10 reformulated searches with no reliable hit, the benchmark is logged missing — not guessed.</div>
+      </div>
+    </div>
+
+    <h3 class="sub">What it covers</h3>
+    <div class="bench-grid">
+      <div class="bench-row">
+        <div class="bench-cat">Multi-Task Language Understanding</div>
+        <div class="bench-items"><span class="bench-tag">MMLU</span><span class="bench-tag">MMLU-Pro</span></div>
+      </div>
+      <div class="bench-row">
+        <div class="bench-cat">Coding</div>
+        <div class="bench-items"><span class="bench-tag">HumanEval</span><span class="bench-tag">EvalPlus</span><span class="bench-tag">LiveCodeBench</span><span class="bench-tag">SWE-Bench Verified</span></div>
+      </div>
+      <div class="bench-row">
+        <div class="bench-cat">Reasoning</div>
+        <div class="bench-items"><span class="bench-tag">DROP</span><span class="bench-tag">BBH</span><span class="bench-tag">Humanity's Last Exam</span></div>
+      </div>
+      <div class="bench-row">
+        <div class="bench-cat">Math</div>
+        <div class="bench-items"><span class="bench-tag">MATH / MATH-500</span><span class="bench-tag">AIME-24</span></div>
+      </div>
+      <div class="bench-row">
+        <div class="bench-cat">Scientific Reasoning / Understanding</div>
+        <div class="bench-items"><span class="bench-tag">GPQA</span><span class="bench-tag">GPQA Diamond</span><span class="bench-tag">MedQA</span><span class="bench-tag">SciKnowEval</span></div>
+      </div>
+      <div class="bench-row">
+        <div class="bench-cat">Multilingual Understanding</div>
+        <div class="bench-items"><span class="bench-tag">MGSM</span><span class="bench-tag">MMMLU</span></div>
+      </div>
+      <div class="bench-row">
+        <div class="bench-cat">Safety</div>
+        <div class="bench-items"><span class="bench-tag">HarmBench</span><span class="bench-tag">Alert</span></div>
+      </div>
+      <div class="bench-row">
+        <div class="bench-cat">Agents</div>
+        <div class="bench-items"><span class="bench-tag">Berkeley Function Calling Leaderboard</span><span class="bench-tag">GAIA</span></div>
+      </div>
+      <div class="bench-row">
+        <div class="bench-cat">Fact Checking</div>
+        <div class="bench-items"><span class="bench-tag">FACTS Grounding</span></div>
+      </div>
+      <div class="bench-row">
+        <div class="bench-cat">Long Context</div>
+        <div class="bench-items"><span class="bench-tag">LongBenchV2</span><span class="bench-tag">RULER</span></div>
+      </div>
+      <div class="bench-row">
+        <div class="bench-cat">Hallucination</div>
+        <div class="bench-items"><span class="bench-tag">Vectra Hallucination</span></div>
+      </div>
+    </div>
+
+    <h3 class="sub">Design decisions that mattered</h3>
+    <ol class="rule-list">
+      <li data-n="1"><b>Search is bounded, not target-driven.</b> Ten reformulated queries per benchmark is a safety ceiling, not a goal — most resolve in one or two. Letting it run longer only on obscure or newly-released models keeps the average request fast without giving up on the long tail.</li>
+      <li data-n="2"><b>Fetch before trust.</b> A number never gets recorded off a search snippet — the agent has to pull the full page (or parse the PDF, for technical reports that don't publish an HTML version) before it counts as a source.</li>
+      <li data-n="3"><b>Source trust is a hierarchy, not a filter.</b> Official vendor material outranks public leaderboards, which outrank independent eval repos. When sources disagree, the agent keeps the official number and notes the discrepancy instead of picking silently.</li>
+      <li data-n="4"><b>Blocked pages get skipped, not retried.</b> Paywalls, bot-blocking, and JS-only rendering waste the search budget if retried — the agent falls back to the next result instead.</li>
+    </ol>
+
+    <h3 class="sub">Structured output, not free-text JSON</h3>
+    <p class="lede">The retrieval agent's output feeds a Power Automate flow with a Parse JSON step downstream — the kind of integration that breaks silently the moment a model decides to wrap its answer in a sentence, rename a field, or drop a null. Rather than trust the model to freehand valid JSON on every run, the response is bound to a Pydantic schema via structured outputs: the API constrains generation to the schema directly, so the shape is guaranteed before it ever reaches the parser.</p>
+    <div class="code-panel">
+<span class="cmt"># every benchmark appears once, score is null if not found —</span>
+<span class="cmt"># the schema enforces the shape, the prompt enforces completeness</span>
+class BenchmarkEntry(BaseModel):
+    <span class="key">category</span>: str
+    <span class="key">benchmark</span>: str
+    <span class="key">score</span>: <span class="str">str | None</span>
+    <span class="key">unit</span>: <span class="str">str | None</span>
+    <span class="key">source_url</span>: <span class="str">str | None</span>
+    <span class="key">source_type</span>: <span class="str">Literal["official","leaderboard","third_party"] | None</span>
+    <span class="key">notes</span>: <span class="str">str | None</span>
+
+class ModelBenchmarkReport(BaseModel):
+    <span class="key">model_name</span>: str
+    <span class="key">retrieved_at</span>: str  <span class="cmt"># ISO 8601</span>
+    <span class="key">benchmarks</span>: list[BenchmarkEntry]
+    <span class="key">missing_benchmarks</span>: list[str]
+    </div>
+    <div class="callout"><b>Why it matters:</b> this is the difference between "the model usually returns good JSON" and "the pipeline cannot receive malformed JSON" — one is a habit, the other is a guarantee the downstream system can build on.</div>
+  </div>
+</section>
+
+<section id="safety">
+  <div class="wrap">
+    <h2 class="section-title">AI Safety, Security &amp; Ethics</h2>
+    <p class="lede">The evaluation work sits inside MSD's AI Safety, Security &amp; Ethics group, which extends the scope past raw capability. Two threads run alongside the benchmarking:</p>
+    <ol class="rule-list">
+      <li data-n="1"><b>Output safety.</b> Evaluating models for harmful, biased, or unfair outputs — not just whether the model is capable, but whether it's safe to point at a real workflow.</li>
+      <li data-n="2"><b>Agentic risk.</b> As more of what we deploy is agentic rather than single-turn, the risk surface changes — prompt injection, remote code execution, and data protection become live concerns rather than theoretical ones. Part of this work is defining the guardrails that mitigate them before an agent ships, not after.</li>
+    </ol>
+  </div>
+</section>
+
+<section id="stack">
+  <div class="wrap">
+    <h2 class="section-title">Stack</h2>
+    <div class="tag-row">
+      <span class="tag">Elo / Bradley-Terry ranking</span>
+      <span class="tag">Web-search &amp; fetch retrieval agent</span>
+      <span class="tag">Structured outputs (Pydantic)</span>
+      <span class="tag">Power Automate</span>
+      <span class="tag">Power BI</span>
+      <span class="tag">AI safety &amp; red-teaming</span>
+    </div>
+  </div>
+</section>
+
+</article>
+
+<footer>
+  <div class="wrap">
+    <p>Akshit Karanam — Singapore</p>
+    <a href="../index.html#projects">← Back to all projects</a>
+  </div>
+</footer>
+
+</body>
+</html>
