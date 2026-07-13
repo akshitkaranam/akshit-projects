@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Self-Evolving Magentic Orchestration — Akshit Karanam</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/base.css">
+<link rel="stylesheet" href="../css/project.css">
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a class="back" href="../index.html#projects">← Akshit Karanam</a>
+    <a class="brand" href="../index.html">AK</a>
+  </div>
+</nav>
+
+<header class="hero wrap">
+  <div class="kicker"><span class="dot"></span>Case Study</div>
+  <h1 class="title">Self-Evolving Magentic Orchestration</h1>
+  <p class="dek">Can a multi-agent system get better at a task without retraining its base model? A comparative study of memory, skill-library, and RL-based routing strategies, layered onto a frozen orchestration baseline, across 7 public benchmarks.</p>
+  <div class="meta-row">
+    <span class="chip">SMU — CS605 group project</span>
+  </div>
+  <div class="cov"><span class="f-teal"></span><span class="f-amber"></span><span class="f-amber"></span><span></span></div>
+  <div class="cov-label">SMU research, 7 benchmarks</div>
+</header>
+
+<article>
+
+<section id="problem">
+  <div class="wrap">
+    <h2 class="section-title">The problem</h2>
+    <p class="lede">A single LLM agent only produces text — it can't check its own work. Ask one model to localize a bug, edit the file, run the tests, and review the result, and there's no division of labour: a broken patch ships because nothing catches it. Orchestration splits those jobs across specialized roles with a manager that decomposes, routes, and replans — and critically, a tester and critic that verify before anything counts as done.</p>
+    <figure class="screenshot-figure">
+      <img class="screenshot" src="../img/magentic/one-agent-vs-team.png" alt="Diagram contrasting a single LLM agent trying to localize, edit, test, and review at once (no checks, broken patch ships) against a manager-led team of planner, coder, tester, and critic roles with verification">
+      <figcaption class="screenshot-caption">One agent has no checks on itself; a manager-led team with a tester and critic catches the broken patch before it ships.</figcaption>
+    </figure>
+    <ol class="rule-list">
+      <li data-n="1"><b>Orchestration produces actions, not just text.</b> A single model answers; a team of agents executes, verifies, and recovers.</li>
+      <li data-n="2"><b>Hard tasks don't fit in one context.</b> Long-horizon work needs memory and re-planning across steps, not one pass.</li>
+      <li data-n="3"><b>Specialization is engineerable.</b> Prompts, tools, memory, planning, and evaluation each become a part of the stack that can be versioned and improved on its own.</li>
+    </ol>
+  </div>
+</section>
+
+<section id="orchestration">
+  <div class="wrap">
+    <h2 class="section-title">Magentic orchestration, and where it stops</h2>
+    <p class="lede">Magentic-One is a generalist multi-agent framework Microsoft released in 2024, designed to sit between two failure modes: leaving control entirely to the model (early CrewAI) and rigidly hard-coding the engineering flow (LangGraph). A manager workflow decomposes a task, assigns it across however many agents are registered, and checks a task-and-progress ledger before deciding whether to keep going or return a result.</p>
+    <figure class="screenshot-figure">
+      <img class="screenshot" src="../img/magentic/magentic-one-framework.png" alt="Magentic-One framework diagram: input feeds a Magentic Manager Workflow, which checks a task-and-progress ledger for task completion, loops back if not, and dispatches work across Agent 1..n, each with its own model, knowledge, and tools">
+      <figcaption class="screenshot-caption">Magentic-One: a manager workflow, a task/progress ledger, and however many specialized agents a task needs.</figcaption>
+    </figure>
+    <p class="lede">What it doesn't do is learn from having run before — it adapts dynamically within a task via the ledger, but the manager, the agents, and the underlying model are exactly the same on run one and run one thousand. That's the gap this project investigates: can the orchestration itself evolve without retraining anything underneath it?</p>
+
+    <h3 class="sub">Our baseline</h3>
+    <p class="lede">Everything in the baseline is frozen across tasks — tools, prompt skeleton, decoding. The base model is MiniMax-M2.7, run through LangChain, with 8 specialized subagents (planner, coder, tester, critic, plus file_manager / researcher / memory / skill_writer) implemented on AgentOS for durable state. Every self-evolution strategy below plugs into this same frozen substrate, so any difference in results is attributable to the strategy, not to a different base system.</p>
+    <figure class="screenshot-figure">
+      <img class="screenshot" src="../img/magentic/baseline-system.png" alt="Baseline system diagram: a frozen Magentic Manager routes to Task and Progress ledgers and down to planner, coder, tester, critic, and auxiliary agents, all on the same frozen MiniMax-M2.7 base, with a replan-on-stall loop back to the manager">
+      <figcaption class="screenshot-caption">The frozen baseline every strategy below is layered onto — I built this orchestration layer and ran the baseline evaluations it's compared against.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section id="approach">
+  <div class="wrap">
+    <h2 class="section-title">Three strategies, one substrate</h2>
+    <p class="lede">The design principle: hold everything fixed except the one thing being tested. Four conditions share the identical frozen manager, agents, tools, and base model — they differ only in which self-evolving strategy, if any, is layered on top, and each plugs into the manager's ledgers at a different natural seam.</p>
+    <figure class="screenshot-figure">
+      <img class="screenshot" src="../img/magentic/three-strategies.png" alt="Diagram: an ordered task stream runs through frozen manager-led orchestration, then an optional self-evolving strategy (the only moving part), producing performance results. Four conditions share this substrate: C0 baseline, Strategy 1 (experience memory via task ledger planning context), Strategy 2 (tools and skills via task ledger skill library), Strategy 3 (RL puppeteer via progress ledger next agent), or Combined (S1+S2+S3 via progress ledger next speaker)">
+      <figcaption class="screenshot-caption">Four conditions, one frozen substrate — each strategy is the only moving part in its condition.</figcaption>
+    </figure>
+    <p class="lede">My part was building the Magentic orchestration layer and running the baseline evaluations every strategy below is measured against; each of the three strategies was led by a different teammate on the team.</p>
+  </div>
+</section>
+
+<section id="benchmarks">
+  <div class="wrap">
+    <h2 class="section-title">Benchmarks</h2>
+    <p class="lede">Seven public benchmarks split across single-pass reasoning (GSM8K, MATH, MMLU, GPQA, DROP) and multi-step execution (SWE-bench, GAIA) — each sampled for a mix of hard and easy instances rather than an arbitrary slice.</p>
+    <div class="bench-grid">
+      <div class="bench-row">
+        <div class="bench-cat">GSM8K — 100 samples</div>
+        <div class="bench-items"><span class="bench-tag">Hard (70): ≥6-sentence solution</span><span class="bench-tag">Easy (30): ≤3-sentence solution</span></div>
+      </div>
+      <div class="bench-row">
+        <div class="bench-cat">DROP — 100 samples</div>
+        <div class="bench-items"><span class="bench-tag">Hard (50): numeric + arithmetic / long passage</span><span class="bench-tag">Easy (20): numeric, no keywords</span><span class="bench-tag">Spans (30): extractive</span></div>
+      </div>
+      <div class="bench-row">
+        <div class="bench-cat">GPQA Diamond — 100 samples</div>
+        <div class="bench-items"><span class="bench-tag">3 subjects, sorted by length</span><span class="bench-tag">Hard ~70% / Easy ~30% per subject</span></div>
+      </div>
+      <div class="bench-row">
+        <div class="bench-cat">MMLU — 100 samples</div>
+        <div class="bench-items"><span class="bench-tag">18 subjects, weighted toward harder ones (e.g. law, genetics)</span></div>
+      </div>
+      <div class="bench-row">
+        <div class="bench-cat">MATH — 100 samples</div>
+        <div class="bench-items"><span class="bench-tag">7 subjects</span><span class="bench-tag">Hard (10/subject): Level 4–5</span><span class="bench-tag">Easy (4/subject): Level 1–2</span></div>
+      </div>
+      <div class="bench-row">
+        <div class="bench-cat">SWE-bench &amp; GAIA — 20 samples each</div>
+        <div class="bench-items"><span class="bench-tag">Randomly selected</span></div>
+      </div>
+    </div>
+
+    <h3 class="sub">Baseline scores</h3>
+    <p class="lede">Same evaluation protocol as Magentic-One's original benchmarks, re-run on our frozen MiniMax-M2.7 baseline — the row every strategy below is measured against.</p>
+    <table class="data-table">
+      <thead><tr><th>Benchmark</th><th>Score</th></tr></thead>
+      <tbody>
+        <tr><td class="label">GSM8K</td><td>95.0</td></tr>
+        <tr><td class="label">MATH</td><td>64.3</td></tr>
+        <tr><td class="label">MMLU</td><td>86.8</td></tr>
+        <tr><td class="label">GPQA</td><td>21.2</td></tr>
+        <tr><td class="label">DROP</td><td>71.0</td></tr>
+        <tr><td class="label">SWE-Bench</td><td>55.0</td></tr>
+        <tr><td class="label">GAIA</td><td>30.0</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="s1">
+  <div class="wrap">
+    <h2 class="section-title">Strategy 1 — memory from experience</h2>
+    <p class="lede">A finished run gets compiled into a compact, structured summary — not the raw dialogue log — and stored in a memory base. The manager retrieves the top-k most relevant summaries into its planning context on future runs. Agents, tools, and the base model stay completely frozen; only the manager's planning context changes.</p>
+    <figure class="screenshot-figure">
+      <img class="screenshot" src="../img/magentic/s1-flow.png" alt="Strategy 1 flow: a finished run (worked or failed) feeds a summary compiler for recovery, which writes structured experience into a memory base, which the manager retrieves top-k from for planning. Frozen components: agents, tools, model.">
+      <figcaption class="screenshot-caption">Only a memory layer is added around the manager's planning context — agents, tools, and model stay frozen.</figcaption>
+    </figure>
+
+    <h3 class="sub">Verified before measuring</h3>
+    <p class="lede">Before trusting any performance number, the mechanism itself was checked end-to-end: memory gets compiled, stored, retrieved, and injected in the real manager loop, not just in isolated unit tests.</p>
+    <div class="bench-grid">
+      <div class="bench-row">
+        <div class="bench-cat">11/11 unit tests passed</div>
+        <div class="bench-items"><span class="bench-tag">Store, compiler, retriever</span></div>
+      </div>
+      <div class="bench-row">
+        <div class="bench-cat">1.00 retrieval P@1</div>
+        <div class="bench-items"><span class="bench-tag">Same-family accuracy</span></div>
+      </div>
+      <div class="bench-row">
+        <div class="bench-cat">Real LLM loop, end to end</div>
+        <div class="bench-items"><span class="bench-tag">Disabled state matches stock baseline exactly</span></div>
+      </div>
+    </div>
+
+    <h3 class="sub">Relevant memory improves success</h3>
+    <p class="lede">On a SWE-bench slice, applying relevant memory took end-task success from 25% to 100% — while also cutting retries (2.58 → 1.00 steps/task) and cost (2372 → 1285 tokens/task).</p>
+    <table class="data-table">
+      <thead><tr><th>Condition</th><th>Success</th><th>Routing</th><th>Tokens</th></tr></thead>
+      <tbody>
+        <tr><td class="label">C0 (baseline)</td><td>25%</td><td>17%</td><td>2372</td></tr>
+        <tr><td class="label">Random memory</td><td>79%</td><td>71%</td><td>1929</td></tr>
+        <tr><td class="label">S1 summary</td><td class="best">100%</td><td class="best">100%</td><td class="best">1285</td></tr>
+        <tr><td class="label">Raw dialogue log</td><td>100%</td><td>88%</td><td>2777</td></tr>
+      </tbody>
+    </table>
+    <div class="hbar-row"><div class="hbar-label">C0</div><div class="hbar-track"><div class="hbar-fill" style="width:25%"></div></div><div class="hbar-value">25%</div></div>
+    <div class="hbar-row"><div class="hbar-label">Random</div><div class="hbar-track"><div class="hbar-fill" style="width:79%"></div></div><div class="hbar-value">79%</div></div>
+    <div class="hbar-row"><div class="hbar-label">S1 summary</div><div class="hbar-track"><div class="hbar-fill" style="width:100%"></div></div><div class="hbar-value">100%</div></div>
+    <div class="hbar-row"><div class="hbar-label">Raw log</div><div class="hbar-track"><div class="hbar-fill" style="width:100%"></div></div><div class="hbar-value">100%</div></div>
+
+    <div class="callout"><b>The ablation that mattered:</b> relevance alone isn't enough (random context only reaches 54–79% success — proves more context isn't the point, relevant context is), and safety needs a gate — disabling the relevance filter out-of-distribution dropped success from 100% back to 50%, restored to 100% once the gate was reinstated. Compressed summaries also matched raw logs on success at under half the tokens (1,285 vs. 2,777).</div>
+
+    <h3 class="sub">Strategy 1 vs. baseline</h3>
+    <table class="data-table">
+      <thead><tr><th>Benchmark</th><th>Baseline</th><th>Strategy 1</th></tr></thead>
+      <tbody>
+        <tr><td class="label">GSM8K</td><td>95.0</td><td class="best">100</td></tr>
+        <tr><td class="label">MATH</td><td>64.3</td><td class="best">65.0</td></tr>
+        <tr><td class="label">MMLU</td><td>86.8</td><td class="best">90.0</td></tr>
+        <tr><td class="label">GPQA</td><td>21.2</td><td class="best">45.0</td></tr>
+        <tr><td class="label">DROP</td><td>71.0</td><td class="best">90.0</td></tr>
+        <tr><td class="label">SWE-Bench</td><td class="best">55.0</td><td>50.0</td></tr>
+        <tr><td class="label">GAIA</td><td>30.0</td><td class="best">36.8</td></tr>
+      </tbody>
+    </table>
+    <p class="lede">Best gain: GPQA +23.8. Largest drop: SWE-bench −5.0.</p>
+  </div>
+</section>
+
+<section id="s2">
+  <div class="wrap">
+    <h2 class="section-title">Strategy 2 — tool &amp; skill library</h2>
+    <p class="lede">The framing borrows from cognitive science: semantic memory (facts) maps to RAG, episodic memory (experience) maps to interaction logs — Strategy 1's territory — and procedural memory (skills, "how to do things") maps to an executable skill library, a folder of markdown files each describing when to use a skill, its workflow, its tools, and its output format.</p>
+    <div class="tag-row">
+      <span class="tag">Purpose</span><span class="tag">When to use</span><span class="tag">Inputs</span><span class="tag">Workflow</span><span class="tag">Tools / scripts</span><span class="tag">Constraints</span><span class="tag">Examples</span><span class="tag">Output format</span>
+    </div>
+
+    <h3 class="sub">Definitions</h3>
+    <ol class="rule-list">
+      <li data-n="1"><b>Tool.</b> An external function, API, or program an agent calls for one specific operation beyond its native reasoning.</li>
+      <li data-n="2"><b>Skill.</b> A reusable, higher-level capability packaging instructions, tool usage, workflow logic, and success criteria for a whole class of tasks.</li>
+    </ol>
+
+    <h3 class="sub">How it evolves</h3>
+    <p class="lede" style="margin-bottom:0;">Retrieve an active skill → execute → fall back to normal agents if it fails → the Skill Librarian decides noop / refine / create → tests and critic gate activation.</p>
+    <div class="loop">
+      <div class="loop-step"><div class="n">01</div><div class="t">Retrieve</div><div class="d">Active skill by task type, tags, context keys.</div></div>
+      <div class="loop-arrow">→</div>
+      <div class="loop-step"><div class="n">02</div><div class="t">Execute</div><div class="d">Run the retrieved skill against the task.</div></div>
+      <div class="loop-arrow">→</div>
+      <div class="loop-step"><div class="n">03</div><div class="t">Fallback</div><div class="d">Normal agents solve it if the skill fails or doesn't apply.</div></div>
+      <div class="loop-arrow">→</div>
+      <div class="loop-step"><div class="n">04</div><div class="t">Decide</div><div class="d">Skill Librarian: noop, refine, or create a new skill.</div></div>
+      <div class="loop-arrow">→</div>
+      <div class="loop-step"><div class="n">05</div><div class="t">Gate</div><div class="d">Tests + critic score ≥ 0.8 before activation.</div></div>
+    </div>
+    <figure class="screenshot-figure">
+      <img class="screenshot" src="../img/magentic/s2-flow.png" alt="Strategy 2 flow: Manager Agent tries an active executable skill via a Retriever + Runner before normal routing; failed or N/A results fall back to normal agents (planner/coder/tester/critic); completed results and fallback experience feed a Skill Librarian (noop/refine/create), which a Coder compiles and a Validate+Critic step gates (AST + tests + score ≥0.8) before activating or deprecating it in the Executable Skill Library (manifest.json, skill.py, tests.json, skill.md, stats.json, experience.jsonl)">
+      <figcaption class="screenshot-caption">Only the project-local skill library evolves — manager, agents, tools, and base model stay frozen.</figcaption>
+    </figure>
+    <p class="lede">This builds on a line of prior work: agents that generate and cache reusable tool code (<b>LATM</b>, Cai et al. 2023), that separate abstract skill creation from concrete execution (<b>CREATOR</b>, Qian et al. 2023), that refine executable skills over a lifetime of tasks (<b>Voyager</b>, Wang et al. 2023), and that manage a skill's full lifecycle — create, remember, evaluate, refine, transfer (<b>MUSE-Autoskill</b>, Lin et al. 2026).</p>
+
+    <h3 class="sub">Strategy 2 vs. baseline</h3>
+    <table class="data-table">
+      <thead><tr><th>Benchmark</th><th>Baseline</th><th>Strategy 2</th></tr></thead>
+      <tbody>
+        <tr><td class="label">GSM8K</td><td>95.0</td><td class="best">100</td></tr>
+        <tr><td class="label">MATH</td><td>64.3</td><td class="best">69.4</td></tr>
+        <tr><td class="label">MMLU</td><td class="best">86.8</td><td>83.9</td></tr>
+        <tr><td class="label">GPQA</td><td>21.2</td><td class="best">30.6</td></tr>
+        <tr><td class="label">DROP</td><td>71.0</td><td>71.0</td></tr>
+        <tr><td class="label">SWE-Bench</td><td>55.0</td><td>55.0</td></tr>
+        <tr><td class="label">GAIA</td><td>30.0</td><td class="best">40.0</td></tr>
+      </tbody>
+    </table>
+    <p class="lede">Best gain: GAIA +10.0. Largest drop: MMLU −2.9.</p>
+  </div>
+</section>
+
+<section id="s3">
+  <div class="wrap">
+    <h2 class="section-title">Strategy 3 — RL puppeteer over routing</h2>
+    <p class="lede">A small trainable policy head (~0.9M params, a 3-layer MLP over a frozen text-encoder embedding of the current state) sits at exactly one seam: after the frozen manager proposes which agent should act next, the head decides whether to keep that pick or override it. Everything else — the manager loop, the 8 agents, the base model — stays frozen; this is the only part that learns.</p>
+    <figure class="screenshot-figure">
+      <img class="screenshot" src="../img/magentic/s3-flow.png" alt="Strategy 3 flow: a benchmark task goes through the frozen manager loop, which proposes an agent; the RL puppeteer head (the only learning part) decides to keep or override the pick; the chosen sub-agent runs on MiniMax-M2.7 + tools; the result is graded with reward R = success minus lambda times cost; the manager loop updates its board and moves to the next step until all tasks are terminal">
+      <figcaption class="screenshot-caption">One trainable seam — keep or override the manager's agent pick — everything else stays frozen.</figcaption>
+    </figure>
+    <p class="lede">It learns online: after every graded instance, one REINFORCE update (with an EMA baseline) nudges the head toward whatever choice beat its running average reward, where reward is R = success − λ·cost, λ auto-calibrated from the observed median cost.</p>
+    <figure class="screenshot-figure">
+      <img class="screenshot" src="../img/magentic/s3-loop-detail.png" alt="Four definition cards: State (the run snapshot at each agent assignment — task ledger goal/description, progress ledger iteration count, last few results); Action (9 discrete choices — 0 = follow manager's proposal, 1-8 = override to a specific agent, guarded so an override only applies to a registered, not-yet-failed agent); Policy (a stochastic 3-layer MLP over a 1154-dimension state, ~0.9M trainable parameters, frozen MiniLM text encoder); Reward (one terminal score per instance, R = success minus lambda times cost minus rho times steps, updated via REINFORCE with an EMA baseline)">
+      <figcaption class="screenshot-caption">State, action, policy, and reward for the one seam that learns.</figcaption>
+    </figure>
+
+    <h3 class="sub">Online self-evolution, benchmark by benchmark</h3>
+    <p class="lede">Base capability lands between 59–91% (GSM8K 91, MMLU 66, DROP 61, GPQA 60, MATH 59). The clearest online-learning signal is on DROP (+18% trend) — benchmarks already near ceiling (GSM8K, MMLU, GPQA) stay flat, within noise, since there's little headroom left to climb on a binary success signal. MATH's −22% trend is more likely instance-ordering (harder tasks arriving later in the stream) than genuine policy decay.</p>
+    <figure class="screenshot-figure">
+      <img class="screenshot" src="../img/magentic/s3-benchmarks-chart.png" alt="Five scatter-and-rolling-success charts, one per reasoning benchmark (gsm8k 91/100 trend -5%, drop 61/100 trend +18%, gpqa 51/85 trend -8%, mmlu 69/104 trend -3%, math 53/90 trend -22%), each showing per-instance cost-aware reward dots, a 10-instance rolling success line, and a dashed within-benchmark learning trend, with one REINFORCE update per instance">
+      <figcaption class="screenshot-caption">Per-instance reward, 10-instance rolling success, and the learning trend line, across all five reasoning benchmarks.</figcaption>
+    </figure>
+
+    <h3 class="sub">Strategy 3 vs. baseline</h3>
+    <table class="data-table">
+      <thead><tr><th>Benchmark</th><th>Baseline</th><th>Strategy 3</th></tr></thead>
+      <tbody>
+        <tr><td class="label">GSM8K</td><td>95.0</td><td class="best">97.0</td></tr>
+        <tr><td class="label">MATH</td><td class="best">64.3</td><td>58.9</td></tr>
+        <tr><td class="label">MMLU</td><td class="best">86.8</td><td>66.3</td></tr>
+        <tr><td class="label">GPQA</td><td>21.2</td><td class="best">60.0</td></tr>
+        <tr><td class="label">DROP</td><td class="best">71.0</td><td>61.0</td></tr>
+        <tr><td class="label">SWE-Bench</td><td class="best">55.0</td><td>50.0</td></tr>
+        <tr><td class="label">GAIA</td><td>30.0</td><td class="best">42.1</td></tr>
+      </tbody>
+    </table>
+    <p class="lede">Best gain: GPQA +38.8 — the single largest gain of any strategy on any benchmark. Largest drop: MMLU −20.5.</p>
+  </div>
+</section>
+
+<section id="combined">
+  <div class="wrap">
+    <h2 class="section-title">Combined strategy</h2>
+    <p class="lede">All three strategies layered onto the same frozen manager loop: try an active executable skill first (score ≥ 60), otherwise route through an experience-enriched planning prompt, then let the RL head optionally re-route the pick. Manager, agents, tools, and base model stay frozen throughout — S1's experience base, S2's skill library, and S3's policy head are the only three moving parts.</p>
+    <figure class="screenshot-figure">
+      <img class="screenshot" src="../img/magentic/combined-flow.png" alt="Combined strategy flow: frozen Magentic Manager loop feeds an S2 skill retriever+runner, then S1+S3 routing (EvolvingAssigner.choose, where S1 experience enriches the planning prompt and the S3 head may override the pick), then out to the 8-agent roster (coder, memory, +6 more). Frozen: manager, 8 sub-agents, tools, base model. Evolving: S1 shared experience base, S2 project-local skill library, S3 puppeteer policy head. Note: S2 is off for repo/web tasks since it cannot edit a repo. Workflow: task from the stream, S2 skill cache, S1+S3 route, sub-agent runs execute+verify, grade+cost.">
+      <figcaption class="screenshot-caption">Skill first, then experience-enriched routing, then optional RL override — three evolving parts on one frozen loop.</figcaption>
+    </figure>
+    <p class="lede">On a 20-task GAIA subset, the learned baseline climbs from a cold start of 0 to a peak ≈ 0.42, then tracks the run's true ~31% solve rate — and critically, it persists: resuming in a fresh process picks up at b ≈ 0.31, not back at 0, because the head's weights, optimizer, and baseline are checkpointed. Solve rate rose from 25% in the first half of the run to 38% in the second.</p>
+    <figure class="screenshot-figure">
+      <img class="screenshot" src="../img/magentic/combined-gaia-chart.png" alt="Line chart: reward and learned baseline b over 32 online REINFORCE updates on a GAIA 20-task subset across two runs. b climbs from a cold start of 0 to a peak of approximately 0.42, tracking the running success rate. A vertical line marks where the process resumed in a new run, with the head and baseline persisted rather than reset — resuming at b approximately 0.31. Solve rate rises from 25% in the first half to 38% in the second half.">
+      <figcaption class="screenshot-caption">Self-evolution persists across separate runs — the head resumes from its checkpoint, not from zero.</figcaption>
+    </figure>
+
+    <h3 class="sub">Combined vs. baseline</h3>
+    <table class="data-table">
+      <thead><tr><th>Benchmark</th><th>Baseline</th><th>Combined</th></tr></thead>
+      <tbody>
+        <tr><td class="label">GSM8K</td><td>95.0</td><td class="best">99.0</td></tr>
+        <tr><td class="label">MATH</td><td class="best">64.3</td><td>55.1</td></tr>
+        <tr><td class="label">MMLU</td><td class="best">86.8</td><td>71.0</td></tr>
+        <tr><td class="label">GPQA</td><td>21.2</td><td class="best">25.9</td></tr>
+        <tr><td class="label">DROP</td><td>71.0</td><td class="best">74.0</td></tr>
+        <tr><td class="label">SWE-Bench</td><td class="best">55.0</td><td class="best">55.0</td></tr>
+        <tr><td class="label">GAIA</td><td>30.0</td><td class="best">37.5</td></tr>
+      </tbody>
+    </table>
+    <p class="lede">Best gain: GAIA +7.5. Largest drop: MMLU −15.8.</p>
+  </div>
+</section>
+
+<section id="results">
+  <div class="wrap">
+    <h2 class="section-title">Overall results</h2>
+    <p class="lede">Splitting the seven benchmarks into single-pass reasoning (GSM8K, MATH, MMLU, DROP, GPQA) and multi-step execution (SWE-bench, GAIA) makes the pattern clear: every strategy's story is different depending on which kind of task it's facing.</p>
+    <figure class="screenshot-figure">
+      <img class="screenshot" src="../img/magentic/single-vs-multistep.png" alt="Two grouped bar charts comparing Baseline, Strategy 1, Strategy 2, Strategy 3, and Combined. Left panel, single-pass reasoning (GSM8K, MATH, MMLU, DROP, GPQA): Strategy 1 and 2 lead on most benchmarks, Strategy 3 and Combined lag on MMLU and MATH. Right panel, multi-step execution (SWE-bench, GAIA): all strategies roughly match or exceed baseline on SWE-bench, and Strategy 3 leads on GAIA followed by Combined and Strategy 2, all well above baseline.">
+      <figcaption class="screenshot-caption">Single-pass reasoning rewards memory and skills; multi-step execution rewards changing who acts next.</figcaption>
+    </figure>
+
+    <table class="data-table">
+      <thead><tr><th>Benchmark</th><th>Baseline</th><th>S1</th><th>S2</th><th>S3</th><th>Combined</th></tr></thead>
+      <tbody>
+        <tr><td class="label">GSM8K</td><td>95.0</td><td class="best">100</td><td class="best">100</td><td>97.0</td><td>99.0</td></tr>
+        <tr><td class="label">MATH</td><td>64.3</td><td>65.0</td><td class="best">69.4</td><td>58.9</td><td>55.1</td></tr>
+        <tr><td class="label">MMLU</td><td>86.8</td><td class="best">90.0</td><td>83.9</td><td>66.3</td><td>71.0</td></tr>
+        <tr><td class="label">GPQA</td><td>21.2</td><td>45.0</td><td>30.6</td><td class="best">60.0</td><td>25.9</td></tr>
+        <tr><td class="label">DROP</td><td>71.0</td><td class="best">90.0</td><td>71.0</td><td>61.0</td><td>74.0</td></tr>
+        <tr><td class="label">SWE-Bench</td><td>55.0</td><td>50.0</td><td class="best">55.0</td><td>50.0</td><td class="best">55.0</td></tr>
+        <tr><td class="label">GAIA</td><td>30.0</td><td>36.8</td><td>40.0</td><td class="best">42.1</td><td>37.5</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="analysis">
+  <div class="wrap">
+    <h2 class="section-title">Mechanism vs. adaptivity trade-off</h2>
+    <table class="data-table">
+      <thead><tr><th>Strategy</th><th>What it changes</th><th>Where it helps</th><th>Trade-off</th></tr></thead>
+      <tbody>
+        <tr><td class="label">S1 Memory</td><td>Compiles past-task summaries into the planning prompt; solver &amp; routing unchanged</td><td>Reasoning, broadly (DROP +19, GPQA +24, MMLU +3)</td><td>Almost none (SWE-bench −5)</td></tr>
+        <tr><td class="label">S2 Skills</td><td>Runs a learned skill (score ≥60) before routing; ≤1 new skill/run</td><td>Reusable compute patterns (GSM8K +5, MATH +5, GAIA +10)</td><td>Narrow (MMLU −3; flat DROP &amp; SWE-bench)</td></tr>
+        <tr><td class="label">S3 RL routing</td><td>Trained head overrides the sub-agent pick each step, learning online</td><td>Multi-step execution (GAIA +12, best of any strategy)</td><td>Heavy reasoning tax (MMLU −20, DROP −10, MATH −5)</td></tr>
+        <tr><td class="label">Combined</td><td>All three on one frozen manager: skill first, then enriched prompt, then optional re-route</td><td>Execution peak (DROP +3, GPQA +4, GAIA +7.5)</td><td>Inherits S3's tax (MMLU −16, MATH −9)</td></tr>
+      </tbody>
+    </table>
+    <div class="callout"><b>Adaptivity comes as a trade-off:</b> enriching context (S1) is the low-risk, general win. Skills (S2) help only where a reusable pattern actually exists. Changing who executes (S3) trades single-pass reasoning for multi-step execution — it isn't free, it's a different bet.</div>
+  </div>
+</section>
+
+<section id="takeaways">
+  <div class="wrap">
+    <h2 class="section-title">Key takeaways</h2>
+    <ol class="rule-list">
+      <li data-n="1"><b>Memory is the cheapest, most general self-evolution strategy.</b> It improves reasoning broadly with almost no downside.</li>
+      <li data-n="2"><b>Adaptivity is a trade-off, not a free upgrade.</b> RL routing drives the largest agentic/tool gains (GAIA +12.1, best of all conditions) but taxes single-pass reasoning (MMLU −20).</li>
+      <li data-n="3"><b>Combining strategies is targeted, not universally better.</b> The combined stack tops the agentic benchmark yet still inherits the reasoning tax that comes with changing who executes.</li>
+      <li data-n="4"><b>What's next.</b> Scaling the benchmark set and reporting confidence intervals, and trying ensemble methods to find the best self-evolving combination rather than a single fixed recipe.</li>
+    </ol>
+  </div>
+</section>
+
+<section id="stack">
+  <div class="wrap">
+    <h2 class="section-title">Stack</h2>
+    <div class="tag-row">
+      <span class="tag">Multi-agent orchestration</span>
+      <span class="tag">LangChain</span>
+      <span class="tag">Reinforcement learning (REINFORCE)</span>
+      <span class="tag">Retrieval-augmented memory</span>
+      <span class="tag">Executable skill library</span>
+      <span class="tag">Benchmark evaluation</span>
+    </div>
+  </div>
+</section>
+
+</article>
+
+<footer>
+  <div class="wrap">
+    <p>Akshit Karanam — Singapore</p>
+    <a href="../index.html#projects">← Back to all projects</a>
+  </div>
+</footer>
+
+</body>
+</html>
