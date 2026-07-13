@@ -234,17 +234,17 @@ structured_llm = llm.with_structured_output(ModelBenchmarkReport)
       <div class="verdict-col worked">
         <h4>Worked</h4>
         <ul class="verdict-list">
-          <li>Splitting triage from extraction into separate prompts — a single "find the score" prompt kept blending "this page is about the right model" with "this page has the number," which produced more false positives than treating them as two decisions.</li>
-          <li>Giving the agent one narrow tool per responsibility (search, fetch, classify) instead of one freeform "research this" tool — the execution trace shows exactly what it tried and why, which made bad runs debuggable instead of a black box.</li>
-          <li>An explicit found-vs-exhausted signal rather than leaving "when to give up" to the model's judgment — it otherwise either stopped on thin evidence or kept searching well past the point of diminishing returns.</li>
+          <li>Using two separate prompts — one to check if a page is relevant, another to pull out the number — instead of one prompt doing both. One prompt kept mixing up "this is about the right model" with "this has the actual score."</li>
+          <li>Giving the agent one tool per job (search, fetch, classify) instead of one do-everything tool. It's easier to see what the agent tried and why when something goes wrong.</li>
+          <li>Telling the agent clearly whether it found the score or ran out of attempts, instead of leaving that call to it. Otherwise it either gave up too early or kept searching way longer than needed.</li>
         </ul>
       </div>
       <div class="verdict-col didnt">
         <h4>Didn't work</h4>
         <ul class="verdict-list">
-          <li>One fixed query per benchmark — technical reports, leaderboards, and model cards each phrase results differently, and a single query missed real sources often enough that reformulation stopped being optional.</li>
-          <li>Reading numbers off search snippets — close-but-wrong matches (different model version, different shot count) got recorded as fact before "fetch the full page first" became a hard rule.</li>
-          <li>Letting the model quietly reconcile disagreeing sources — it would sometimes split the difference between two numbers instead of surfacing the conflict, which is worse than reporting either number alone.</li>
+          <li>Using the same search query every time — different sources word things differently, so one query missed real results often enough that we had to try multiple phrasings.</li>
+          <li>Trusting the short preview text in search results — it sometimes matched the wrong model version or a different test setup, so we had to open the actual page before trusting any number.</li>
+          <li>Letting the agent quietly pick a number when two sources disagreed — sometimes it just averaged them instead of flagging the mismatch, which is worse than showing either number on its own.</li>
         </ul>
       </div>
     </div>
@@ -252,7 +252,7 @@ structured_llm = llm.with_structured_output(ModelBenchmarkReport)
     <h3 class="sub">Design decisions that mattered</h3>
     <ol class="rule-list">
       <li data-n="1"><b>Search is bounded, not target-driven.</b> Ten reformulated queries per benchmark is a safety ceiling, not a goal — most resolve in one or two. Letting it run longer only on obscure or newly-released models keeps the average request fast without giving up on the long tail.</li>
-      <li data-n="2"><b>Fetch before trust.</b> A number never gets recorded off a search snippet — the agent has to pull the full page (or parse the PDF, for technical reports that don't publish an HTML version) before it counts as a source.</li>
+      <li data-n="2"><b>Fetch before trust.</b> A number never gets recorded off a search snippet — the agent has to pull the full page before it counts as a source.</li>
       <li data-n="3"><b>Source trust is a hierarchy, not a filter.</b> Official vendor material outranks public leaderboards, which outrank independent eval repos. When sources disagree, the agent keeps the official number and notes the discrepancy instead of picking silently.</li>
       <li data-n="4"><b>Blocked pages get skipped, not retried.</b> Paywalls, bot-blocking, and JS-only rendering waste the search budget if retried — the agent falls back to the next result instead.</li>
     </ol>
