@@ -98,4 +98,19 @@ h3.sub:first-child{margin-top:0;}
 }
 .rule-list b{color:var(--ink);}
 
+/* WORKED / DIDN'T-WORK COMPARISON */
+.verdict-cols{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:18px;}
+@media (max-width:640px){ .verdict-cols{grid-template-columns:1fr;} }
+.verdict-col h4{
+  font-family:'IBM Plex Mono';font-size:11px;text-transform:uppercase;letter-spacing:0.05em;
+  margin-bottom:12px;
+}
+.verdict-col.worked h4{color:var(--teal);}
+.verdict-col.didnt h4{color:var(--coral);}
+.verdict-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px;}
+.verdict-list li{padding-left:22px;position:relative;font-size:14px;color:var(--ink-soft);line-height:1.5;}
+.verdict-list li::before{position:absolute;left:0;top:0;font-family:'IBM Plex Mono';font-size:13px;}
+.verdict-col.worked .verdict-list li::before{content:'✓';color:var(--teal);}
+.verdict-col.didnt .verdict-list li::before{content:'✗';color:var(--coral);}
+
 footer{border-top:1px solid var(--line);}

@@ -24,9 +24,7 @@
   <h1 class="title">LLM Benchmarking &amp; Evaluation</h1>
   <p class="dek">Deciding which model gets used, and building the evidence to back that decision — a benchmark retrieval agent, an Elo-style ranking system, and the safety review that sits alongside both.</p>
   <div class="meta-row">
-    <span class="chip">MSD International — Research AI Scientist → AI Engineer</span>
-    <span class="chip">AI Safety, Security &amp; Ethics group</span>
-    <span class="chip">Jan 2025 — Present</span>
+    <span class="chip">MSD International — Research AI Scientist</span>
   </div>
   <div class="cov"><span class="f-teal"></span><span class="f-teal"></span><span class="f-teal"></span><span class="f-navy"></span><span class="f-navy"></span><span></span></div>
   <div class="cov-label">coverage across 11 benchmark categories, incomplete by design</div>
@@ -53,7 +51,41 @@
 <section id="agent">
   <div class="wrap">
     <h2 class="section-title">The benchmark retrieval agent</h2>
-    <p class="lede">Ranking and model cards are only as good as the numbers underneath them, and those numbers don't sit in one place — they're scattered across vendor blog posts, technical report PDFs, and public leaderboards, and they get quietly revised after launch. Chasing that by hand doesn't scale past a couple of models. So the actual data collection is a retrieval agent: given a model name, it works through 11 benchmark categories, searches and fetches until it finds a reliable score for each, and returns one structured record.</p>
+    <p class="lede">Ranking and model cards are only as good as the numbers underneath them, and those numbers don't sit in one place — they're scattered across vendor blog posts, technical report PDFs, and public leaderboards, and they get quietly revised after launch. Chasing that by hand doesn't scale past a couple of models. So the actual data collection is a LangChain-based retrieval agent: given a model name, it works through 11 benchmark categories, searches and fetches until it finds a reliable score for each, and returns one structured record.</p>
+
+    <h3 class="sub">Trigger → deployment flow</h3>
+    <p class="lede" style="margin-bottom:0;">New model name in SharePoint → Power Automate trigger → deployed agent runs → structured JSON returns → written back for the dashboards.</p>
+    <div class="loop">
+      <div class="loop-step">
+        <div class="n">01</div>
+        <div class="t">New row in SharePoint</div>
+        <div class="d">Whoever wants a model tracked adds its name to a shared list — kicking off an evaluation doesn't need engineering involvement.</div>
+      </div>
+      <div class="loop-arrow">→</div>
+      <div class="loop-step">
+        <div class="n">02</div>
+        <div class="t">Power Automate trigger</div>
+        <div class="d">A flow watches the list for new items and fires automatically — no one has to remember to run anything.</div>
+      </div>
+      <div class="loop-arrow">→</div>
+      <div class="loop-step">
+        <div class="n">03</div>
+        <div class="t">Call the deployed agent</div>
+        <div class="d">The flow calls the agent's endpoint on MSD's internal agent hosting platform, passing the model name.</div>
+      </div>
+      <div class="loop-arrow">→</div>
+      <div class="loop-step">
+        <div class="n">04</div>
+        <div class="t">Agent runs its loop</div>
+        <div class="d">Search → fetch → rank by trust, per benchmark category — the LangChain agent detailed below.</div>
+      </div>
+      <div class="loop-arrow">→</div>
+      <div class="loop-step">
+        <div class="n">05</div>
+        <div class="t">Written back</div>
+        <div class="d">Schema-bound JSON returns to the flow, which updates the SharePoint list and feeds the Power BI dashboards.</div>
+      </div>
+    </div>
 
     <h3 class="sub">Internal loop</h3>
     <p class="lede" style="margin-bottom:0;">Receive request → cycle through each benchmark → search → fetch → rank by trust → found or retry → emit structured JSON.</p>
@@ -143,6 +175,74 @@
       </div>
     </div>
 
+    <h3 class="sub">Agent design, in LangChain</h3>
+    <p class="lede">Everything downstream of "call the agent" is a LangChain tool-calling agent, not one scripted loop — the LLM decides which tool to call next and when it's seen enough to stop, rather than following a fixed script.</p>
+    <div class="bench-grid">
+      <div class="bench-row">
+        <div class="bench-cat">Orchestrator LLM</div>
+        <div class="bench-items"><span class="bench-tag">Picks the next tool call</span><span class="bench-tag">Decides found vs. keep searching</span></div>
+      </div>
+      <div class="bench-row">
+        <div class="bench-cat">Tool — web_search</div>
+        <div class="bench-items"><span class="bench-tag">Runs one reformulated query</span><span class="bench-tag">Returns candidate URLs</span></div>
+      </div>
+      <div class="bench-row">
+        <div class="bench-cat">Tool — fetch_page</div>
+        <div class="bench-items"><span class="bench-tag">Full page or PDF fetch</span><span class="bench-tag">Text extraction</span></div>
+      </div>
+      <div class="bench-row">
+        <div class="bench-cat">Tool — classify_source</div>
+        <div class="bench-items"><span class="bench-tag">official / leaderboard / third_party</span></div>
+      </div>
+      <div class="bench-row">
+        <div class="bench-cat">Loop controller</div>
+        <div class="bench-items"><span class="bench-tag">max_iterations = 10 / benchmark</span><span class="bench-tag">found vs. exhausted</span></div>
+      </div>
+      <div class="bench-row">
+        <div class="bench-cat">Output parser</div>
+        <div class="bench-items"><span class="bench-tag">with_structured_output</span><span class="bench-tag">Pydantic schema binding</span></div>
+      </div>
+    </div>
+    <div class="code-panel">
+<span class="cmt"># simplified — the real agent layers per-benchmark state and the</span>
+<span class="cmt"># trust/retry logic above this, one call per benchmark category</span>
+tools = [web_search, fetch_page, classify_source]
+
+agent = create_tool_calling_agent(llm, tools, prompt=AGENT_SYSTEM_PROMPT)
+executor = AgentExecutor(agent=agent, tools=tools, max_iterations=10)
+
+structured_llm = llm.with_structured_output(ModelBenchmarkReport)
+    </div>
+
+    <h3 class="sub">The prompts behind it</h3>
+    <p class="lede">No single "find the benchmark score" prompt — the agent runs a short chain of narrower ones, each doing one job, rather than one prompt trying to search, judge, and extract at once.</p>
+    <ol class="rule-list">
+      <li data-n="1"><b>Query reformulation.</b> Given a model and a benchmark, generate a handful of differently-phrased search queries — vendor name, "results" vs "eval," technical-report phrasing, model-card phrasing — instead of one fixed query per benchmark.</li>
+      <li data-n="2"><b>Source triage.</b> Given a fetched page, decide whether it actually contains a usable score for this model and benchmark, and classify it as official, leaderboard, or third-party.</li>
+      <li data-n="3"><b>Extraction.</b> Given a source that passed triage, pull the score, unit, and any caveats into the schema fields — kept as a separate step so the model isn't judging and extracting in the same pass.</li>
+      <li data-n="4"><b>Discrepancy note.</b> When two trusted sources disagree, write a short note describing the conflict rather than silently picking one number.</li>
+    </ol>
+
+    <h3 class="sub">What worked, what didn't</h3>
+    <div class="verdict-cols">
+      <div class="verdict-col worked">
+        <h4>Worked</h4>
+        <ul class="verdict-list">
+          <li>Splitting triage from extraction into separate prompts — a single "find the score" prompt kept blending "this page is about the right model" with "this page has the number," which produced more false positives than treating them as two decisions.</li>
+          <li>Giving the agent one narrow tool per responsibility (search, fetch, classify) instead of one freeform "research this" tool — the execution trace shows exactly what it tried and why, which made bad runs debuggable instead of a black box.</li>
+          <li>An explicit found-vs-exhausted signal rather than leaving "when to give up" to the model's judgment — it otherwise either stopped on thin evidence or kept searching well past the point of diminishing returns.</li>
+        </ul>
+      </div>
+      <div class="verdict-col didnt">
+        <h4>Didn't work</h4>
+        <ul class="verdict-list">
+          <li>One fixed query per benchmark — technical reports, leaderboards, and model cards each phrase results differently, and a single query missed real sources often enough that reformulation stopped being optional.</li>
+          <li>Reading numbers off search snippets — close-but-wrong matches (different model version, different shot count) got recorded as fact before "fetch the full page first" became a hard rule.</li>
+          <li>Letting the model quietly reconcile disagreeing sources — it would sometimes split the difference between two numbers instead of surfacing the conflict, which is worse than reporting either number alone.</li>
+        </ul>
+      </div>
+    </div>
+
     <h3 class="sub">Design decisions that mattered</h3>
     <ol class="rule-list">
       <li data-n="1"><b>Search is bounded, not target-driven.</b> Ten reformulated queries per benchmark is a safety ceiling, not a goal — most resolve in one or two. Letting it run longer only on obscure or newly-released models keeps the average request fast without giving up on the long tail.</li>
@@ -191,7 +291,7 @@ class ModelBenchmarkReport(BaseModel):
     <h2 class="section-title">Stack</h2>
     <div class="tag-row">
       <span class="tag">Elo / Bradley-Terry ranking</span>
-      <span class="tag">Web-search &amp; fetch retrieval agent</span>
+      <span class="tag">LangChain tool-calling agent</span>
       <span class="tag">Structured outputs (Pydantic)</span>
       <span class="tag">Power Automate</span>
       <span class="tag">Power BI</span>
