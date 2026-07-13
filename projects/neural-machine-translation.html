@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Neural Machine Translation — Akshit Karanam</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/base.css">
+<link rel="stylesheet" href="../css/project.css">
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a class="back" href="../index.html#projects">← Akshit Karanam</a>
+    <a class="brand" href="../index.html">AK</a>
+  </div>
+</nav>
+
+<header class="hero wrap">
+  <div class="kicker"><span class="dot"></span>Case Study</div>
+  <h1 class="title">Neural Machine Translation (English → Chinese)</h1>
+  <p class="dek">Making machine-translated documents read like they came from the same translator every time — retrieving from our own translation memory and glossaries before a model ever generates a word, instead of translating each document cold.</p>
+  <div class="meta-row">
+    <span class="chip">MSD International — AI Engineer</span>
+  </div>
+  <div class="cov"><span class="f-teal"></span><span class="f-teal"></span><span></span><span></span></div>
+  <div class="cov-label">core retrieval pipeline built — self-evolving loop and RLHF/DPO still in progress</div>
+</header>
+
+<article>
+
+<section id="problem">
+  <div class="wrap">
+    <h2 class="section-title">The problem</h2>
+    <p class="lede">Machine translation, on its own, translates each sentence in isolation. It doesn't know the company has translated a near-identical clause a hundred times before in a specific way, for a specific regulatory reason — or that a product name has exactly one approved Chinese rendering and every other one is wrong. Point a generic translator at a new document and the output is fluent but inconsistent with everything already published.</p>
+    <p class="lede">The brief: build a pipeline that pulls from the company's own translation memory (TMX) and glossaries before generating anything, so a document translated today reads consistently with one translated a year ago — not like it went through a different translator each time.</p>
+  </div>
+</section>
+
+<section id="pipeline">
+  <div class="wrap">
+    <h2 class="section-title">Retrieval before translation</h2>
+    <p class="lede">This is a RAG pipeline where the thing being retrieved isn't a knowledge-base passage, it's a prior translation decision. Four retrieval strategies run per chunk, each covering a gap the others miss, before the translation engine (Google NMT or an LLM, depending on which the accuracy assessment favors for that content type) ever sees the text.</p>
+
+    <h3 class="sub">Four strategies, one precedence rule</h3>
+    <div class="strategy-grid">
+      <div class="strategy-card c-teal">
+        <div class="t">Fuzzy TM match</div>
+        <div class="d">Top-n candidates from the translation memory, ranked by similarity to the source sentence — reuses a past translation that's close but not identical.</div>
+      </div>
+      <div class="strategy-card c-navy">
+        <div class="t">NER exact match</div>
+        <div class="d">Named entities — product names, regulatory terms — matched exactly rather than fuzzily. A slightly-off phrase is recoverable; a wrong entity name isn't.</div>
+      </div>
+      <div class="strategy-card c-amber">
+        <div class="t">Longest-common-substring tie-break</div>
+        <div class="d">When a span falls between two glossary terms, the candidate sharing the longest overlapping text with the source wins — keeps phrasing consistent with what's already used nearby.</div>
+      </div>
+      <div class="strategy-card c-coral">
+        <div class="t">Full glossary term-pair retrieval</div>
+        <div class="d">Every glossary pair present anywhere in the source text is pulled in, not just the single best match, so the model sees all the relevant terminology at once.</div>
+      </div>
+    </div>
+
+    <div class="loop-branch">
+      <div class="loop-step branch-yes">
+        <div class="n">✓ TMX match found</div>
+        <div class="t">Translation memory wins</div>
+        <div class="d">An existing, previously-used translation unit takes precedence over any glossary match covering the same span.</div>
+      </div>
+      <div class="loop-step branch-no">
+        <div class="n">— no TMX match</div>
+        <div class="t">Glossary fills the gap</div>
+        <div class="d">Glossary term pairs only get used where the translation memory has nothing to offer.</div>
+      </div>
+    </div>
+
+    <h3 class="sub">Difflib in practice</h3>
+    <p class="lede">Both the fuzzy top-n ranking and the longest-common-substring tie-break run on the same tool — Python's <span class="mono">difflib.SequenceMatcher</span> — rather than pulling in a separate Levenshtein library for one job and difflib for the other. <span class="mono">ratio()</span> gives a Levenshtein-style similarity score for ranking; <span class="mono">find_longest_match()</span> gives the actual overlapping span for the tie-break.</p>
+    <div class="code-panel">
+<span class="cmt"># top-n fuzzy match against the translation memory</span>
+scores = [
+    (tu, difflib.SequenceMatcher(<span class="str">None</span>, source_sentence, tu.source).ratio())
+    <span class="key">for</span> tu <span class="key">in</span> translation_memory
+]
+top_n = sorted(scores, key=<span class="key">lambda</span> x: x[1], reverse=<span class="str">True</span>)[:5]
+
+<span class="cmt"># tie-break between two glossary candidates by longest overlapping span</span>
+match = difflib.SequenceMatcher(<span class="str">None</span>, source_sentence, candidate.source)
+overlap = match.find_longest_match(0, len(source_sentence), 0, len(candidate.source))
+    </div>
+
+    <h3 class="sub">Chunking a .docx without touching its structure</h3>
+    <p class="lede">Each chunk is one paragraph's full text — enough context for the model to produce coherent English→Chinese grammar, since word order shifts across the two languages in ways that per-run fragments can't capture. The write-back stays inside that paragraph's own runs, so the document's XML — styles, tables, headers — is never rebuilt, only the text inside existing runs changes.</p>
+    <div class="code-panel">
+<span class="cmt"># chunk = one paragraph's full text, across body and table cells</span>
+<span class="key">for</span> para <span class="key">in</span> iter_all_paragraphs(doc):
+    source_text = <span class="str">""</span>.join(run.text <span class="key">for</span> run <span class="key">in</span> para.runs)
+    <span class="key">if not</span> source_text.strip():
+        <span class="key">continue</span>
+
+    context = retrieve_context(source_text)   <span class="cmt"># TMX + glossary hits, above</span>
+    translated = translate(source_text, context=context)
+
+    para.runs[0].text = translated
+    <span class="key">for</span> run <span class="key">in</span> para.runs[1:]:
+        run.text = <span class="str">""</span>              <span class="cmt"># keep the run object, clear its text</span>
+
+doc.save(output_path)
+    </div>
+    <div class="callout"><b>Trade-off:</b> collapsing a paragraph's runs into one keeps the document's structure and paragraph-level styling intact, but character-level formatting inside a sentence — one bold word mid-clause, say — isn't preserved. The whole paragraph inherits the first run's style.</div>
+
+    <h3 class="sub">The flow, end to end</h3>
+    <p class="lede" style="margin-bottom:0;">Load docx → chunk per paragraph → retrieve context → translate → write back into the original runs → repeat to the end of the document.</p>
+    <div class="loop">
+      <div class="loop-step">
+        <div class="n">01</div>
+        <div class="t">Load .docx</div>
+        <div class="d">python-docx opens the file; paragraphs across the body and table cells are enumerated in document order.</div>
+      </div>
+      <div class="loop-arrow">→</div>
+      <div class="loop-step">
+        <div class="n">02</div>
+        <div class="t">Chunk per paragraph</div>
+        <div class="d">Each paragraph's full text becomes one translation unit — enough context for coherent grammar.</div>
+      </div>
+      <div class="loop-arrow">→</div>
+      <div class="loop-step">
+        <div class="n">03</div>
+        <div class="t">Retrieve context</div>
+        <div class="d">Fuzzy TM match, NER exact match, glossary LCS tie-break, and full term-pair retrieval — TMX wins on overlap.</div>
+      </div>
+      <div class="loop-arrow">→</div>
+      <div class="loop-step">
+        <div class="n">04</div>
+        <div class="t">Translate</div>
+        <div class="d">The chosen engine translates the chunk with the retrieved context injected alongside it.</div>
+      </div>
+      <div class="loop-arrow">→</div>
+      <div class="loop-step">
+        <div class="n">05</div>
+        <div class="t">Write back</div>
+        <div class="d">Translated text goes into the paragraph's first run; the rest are cleared, not removed.</div>
+      </div>
+      <div class="loop-arrow">→</div>
+      <div class="loop-step">
+        <div class="n">06</div>
+        <div class="t">Repeat to end</div>
+        <div class="d">Every paragraph draws on the same shared TMX/glossary store, so terminology stays consistent across even a very long document — without chaining context between chunks.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="roadmap">
+  <div class="wrap">
+    <h2 class="section-title">Extending the proof of concept</h2>
+    <ol class="rule-list">
+      <li data-n="1"><b>A self-evolving translation memory.</b> Exploring automatically updating TMX entries from post-translation edits, so a human correction today improves retrieval for every document translated after it — instead of the same mistake recurring.</li>
+      <li data-n="2"><b>RLHF into the pipeline.</b> Investigating how reinforcement learning from human feedback fits into the translation step itself, including whether DPO is a feasible route given the volume of edit data available.</li>
+      <li data-n="3"><b>Open-source models as an alternative engine.</b> Assessing feasibility and accuracy of models such as TranslateGemma, with RLHF integration, against the Google NMT / LLM comparison already done.</li>
+    </ol>
+  </div>
+</section>
+
+<section id="stack">
+  <div class="wrap">
+    <h2 class="section-title">Stack</h2>
+    <div class="tag-row">
+      <span class="tag">RAG-based retrieval</span>
+      <span class="tag">difflib (fuzzy + LCS)</span>
+      <span class="tag">python-docx</span>
+      <span class="tag">TMX / glossary matching</span>
+      <span class="tag">LangGraph</span>
+      <span class="tag">Google NMT &amp; LLM comparison</span>
+      <span class="tag">RLHF / DPO (in progress)</span>
+    </div>
+  </div>
+</section>
+
+</article>
+
+<footer>
+  <div class="wrap">
+    <p>Akshit Karanam — Singapore</p>
+    <a href="../index.html#projects">← Back to all projects</a>
+  </div>
+</footer>
+
+</body>
+</html>
