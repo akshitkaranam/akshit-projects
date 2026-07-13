@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Adverse Event Case Intake — Akshit Karanam</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/base.css">
+<link rel="stylesheet" href="../css/project.css">
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a class="back" href="../index.html#projects">← Akshit Karanam</a>
+    <a class="brand" href="../index.html">AK</a>
+  </div>
+</nav>
+
+<header class="hero wrap">
+  <div class="kicker"><span class="dot"></span>Case Study</div>
+  <h1 class="title">Adverse Event Case Intake</h1>
+  <p class="dek">Turning a scanned, handwritten, or freeform adverse event report into a structured, schema-compliant safety case — with a confidence score on every field, not one guess for the whole document.</p>
+  <div class="meta-row">
+    <span class="chip">MSD International — AI Engineer</span>
+  </div>
+  <div class="cov"><span class="f-navy"></span><span class="f-navy"></span><span class="f-navy"></span><span></span></div>
+  <div class="cov-label">extraction and schema mapping validated — Veeva Safety intake integration demoed</div>
+</header>
+
+<article>
+
+<section id="problem">
+  <div class="wrap">
+    <h2 class="section-title">The problem</h2>
+    <p class="lede">An adverse event case starts life as whatever a vendor or business partner happened to submit — a typed PDF, a scanned and handwritten intake form, a different regional template entirely, sometimes just free text in an email. Today, a person reads that document and manually re-keys every field — patient details, suspect drug, reaction, seriousness, dates — into a Veeva Safety inbox item by hand.</p>
+    <p class="lede">That's slow precisely because the input refuses to be standardized. A rules-based form parser only works if the form matches the template it was built for; the moment a vendor sends something handwritten, scanned at an angle, or laid out differently, it breaks — which is why this had stayed a manual job.</p>
+  </div>
+</section>
+
+<section id="pipeline">
+  <div class="wrap">
+    <h2 class="section-title">Why this needs a model, not a template parser</h2>
+    <p class="lede">The form itself isn't one fixed thing. The same case type shows up as a typed digital form, a handwritten scan, or a locally-adapted layout — the globally standard CIOMS suspect adverse reaction report is one shape it can take, but far from the only one. A coordinate-based parser breaks the moment the layout shifts; a model reading the page like a person would doesn't care which shape it's looking at.</p>
+    <div class="tag-row">
+      <span class="tag">Typed / digital PDF</span>
+      <span class="tag">Handwritten &amp; scanned</span>
+      <span class="tag">Free text</span>
+      <span class="tag">Regional template variants (e.g. CIOMS)</span>
+    </div>
+
+    <h3 class="sub">The workflow</h3>
+    <p class="lede" style="margin-bottom:0;">Upload → extract with confidence → map to schema → reviewer edits → submit to Veeva.</p>
+    <div class="loop">
+      <div class="loop-step">
+        <div class="n">01</div>
+        <div class="t">Upload</div>
+        <div class="d">A document or pasted free text goes in, in whatever format it arrived.</div>
+      </div>
+      <div class="loop-arrow">→</div>
+      <div class="loop-step">
+        <div class="n">02</div>
+        <div class="t">Extract, with confidence</div>
+        <div class="d">A GenAI prompt pulls out every field and checkbox, each with its own confidence score.</div>
+      </div>
+      <div class="loop-arrow">→</div>
+      <div class="loop-step">
+        <div class="n">03</div>
+        <div class="t">Map to schema</div>
+        <div class="d">Extracted fields get mapped into the target safety schema's exact field names and controlled vocabulary.</div>
+      </div>
+      <div class="loop-arrow">→</div>
+      <div class="loop-step">
+        <div class="n">04</div>
+        <div class="t">Reviewer edits</div>
+        <div class="d">Low-confidence fields are flagged for a human to check before anything is submitted.</div>
+      </div>
+      <div class="loop-arrow">→</div>
+      <div class="loop-step">
+        <div class="n">05</div>
+        <div class="t">Submit</div>
+        <div class="d">One action creates the inbox item and attaches the original document in Veeva Safety.</div>
+      </div>
+    </div>
+
+    <h3 class="sub">Step 1: extraction</h3>
+    <p class="lede">The extraction prompt pulls every field label and value off the page — typed or handwritten — plus every checkbox and which option is selected, each with its own confidence score rather than one score for the whole document. Text fields and checkboxes fail differently, so each gets its own confidence rubric: a smudged signature and an ambiguous tick mark aren't the same kind of uncertain.</p>
+    <div class="code-panel">
+<span class="cmt"># illustrative — simplified from the real extraction contract</span>
+{
+  <span class="key">"fullText"</span>: <span class="str">"string"</span>,
+  <span class="key">"extractedFields"</span>: [
+    { <span class="key">"label"</span>: <span class="str">"string"</span>, <span class="key">"value"</span>: <span class="str">"string"</span>, <span class="key">"confidence"</span>: 0.97 }
+  ],
+  <span class="key">"checkboxes"</span>: [
+    {
+      <span class="key">"label"</span>: <span class="str">"string"</span>,
+      <span class="key">"options"</span>: [<span class="str">"option1"</span>, <span class="str">"option2"</span>],
+      <span class="key">"selected"</span>: [<span class="str">"option2"</span>],
+      <span class="key">"confidence"</span>: 0.92
+    }
+  ]
+}
+    </div>
+
+    <h3 class="sub">Step 2: mapping to schema</h3>
+    <p class="lede">A second, separate prompt takes that extracted JSON and maps it onto the safety schema's exact field names and controlled vocabulary — matching on both label and field description, inferring a field from context when it isn't constrained to a single section, but only ever from evidence actually present in the extraction. Every mapped value carries three confidence numbers, not one.</p>
+    <div class="code-panel">
+<span class="cmt"># illustrative — a mapped field carries both halves of the journey</span>
+{
+  <span class="key">"value"</span>: <span class="str">"..."</span>,
+  <span class="key">"extraction confidence"</span>: 0.90,   <span class="cmt"># how clearly it was read</span>
+  <span class="key">"mapping confidence"</span>: 0.85,      <span class="cmt"># how sure it's the right field</span>
+  <span class="key">"average confidence"</span>: 0.875
+}
+    </div>
+    <div class="callout"><b>Why split it into two steps:</b> a reviewer needs to tell "the handwriting was clear but this might be the wrong field" apart from "I genuinely can't read this." Blending reading and classifying into one confidence number would hide exactly that distinction.</div>
+
+    <h3 class="sub">Getting it into Veeva</h3>
+    <p class="lede">Once a case clears review, the app authenticates against Veeva Vault Safety, transforms the mapped output into the structure Veeva expects, and calls an intake endpoint that creates a single inbox item with the original document attached — so a case arrives ready for review instead of needing to be retyped in by hand.</p>
+  </div>
+</section>
+
+<section id="stack">
+  <div class="wrap">
+    <h2 class="section-title">Stack</h2>
+    <div class="tag-row">
+      <span class="tag">GenAI extraction</span>
+      <span class="tag">Multi-model comparison</span>
+      <span class="tag">Confidence scoring</span>
+      <span class="tag">Schema mapping</span>
+      <span class="tag">Veeva Vault Safety API</span>
+      <span class="tag">OCR</span>
+      <span class="tag">Automation</span>
+    </div>
+  </div>
+</section>
+
+</article>
+
+<footer>
+  <div class="wrap">
+    <p>Akshit Karanam — Singapore</p>
+    <a href="../index.html#projects">← Back to all projects</a>
+  </div>
+</footer>
+
+</body>
+</html>
