@@ -54,7 +54,7 @@
     <p class="lede">Ranking and model cards are only as good as the numbers underneath them, and those numbers don't sit in one place — they're scattered across vendor blog posts, technical report PDFs, and public leaderboards, and they get quietly revised after launch. Chasing that by hand doesn't scale past a couple of models. So the actual data collection is a LangChain-based retrieval agent: given a model name, it works through 11 benchmark categories, searches and fetches until it finds a reliable score for each, and returns one structured record.</p>
 
     <h3 class="sub">Trigger → deployment flow</h3>
-    <p class="lede" style="margin-bottom:0;">New model name in SharePoint → Power Automate trigger → deployed agent runs → structured JSON returns → written back for the dashboards.</p>
+    <p class="lede" style="margin-bottom:0;">New model name in SharePoint → Power Automate trigger → deployed agent runs → Bradley-Terry ranking updates → written back for the dashboards.</p>
     <div class="loop">
       <div class="loop-step">
         <div class="n">01</div>
@@ -82,8 +82,14 @@
       <div class="loop-arrow">→</div>
       <div class="loop-step">
         <div class="n">05</div>
+        <div class="t">Bradley-Terry ranking</div>
+        <div class="d">The new scores feed the Elo-style ranking system, one head-to-head pass per benchmark category, updating the model's relative standing.</div>
+      </div>
+      <div class="loop-arrow">→</div>
+      <div class="loop-step">
+        <div class="n">06</div>
         <div class="t">Written back</div>
-        <div class="d">Schema-bound JSON returns to the flow, which updates the SharePoint list and feeds the Power BI dashboards.</div>
+        <div class="d">Schema-bound JSON and updated rankings return to the flow, which updates the SharePoint list and feeds the Power BI dashboards.</div>
       </div>
     </div>
 
