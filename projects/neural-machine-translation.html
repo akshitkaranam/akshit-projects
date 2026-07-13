@@ -79,7 +79,7 @@
     </div>
 
     <h3 class="sub">Difflib in practice</h3>
-    <p class="lede">Both the fuzzy top-n ranking and the longest-common-substring tie-break run on the same tool — Python's <span class="mono">difflib.SequenceMatcher</span> — rather than pulling in a separate Levenshtein library for one job and difflib for the other. <span class="mono">ratio()</span> gives a Levenshtein-style similarity score for ranking; <span class="mono">find_longest_match()</span> gives the actual overlapping span for the tie-break.</p>
+    <p class="lede">Both steps use Python's <span class="mono">difflib.SequenceMatcher</span>: <span class="mono">ratio()</span> for the fuzzy top-n ranking, <span class="mono">find_longest_match()</span> for the tie-break.</p>
     <div class="code-panel">
 <span class="cmt"># top-n fuzzy match against the translation memory</span>
 scores = [
@@ -152,6 +152,95 @@ doc.save(output_path)
         <div class="d">Every paragraph draws on the same shared TMX/glossary store, so terminology stays consistent across even a very long document — without chaining context between chunks.</div>
       </div>
     </div>
+  </div>
+</section>
+
+<section id="evaluation">
+  <div class="wrap">
+    <h2 class="section-title">Evaluating translation quality</h2>
+    <p class="lede">Building the retrieval pipeline was one problem; proving which translation approach actually performs best for this document type was another. Alongside it, I helped build an evaluation framework that scores candidate translation engines head-to-head on a held-out set of real documents, across five metrics that each catch something the others miss.</p>
+
+    <div class="bench-grid">
+      <div class="bench-row">
+        <div class="bench-cat">BLEU score</div>
+        <div class="bench-items"><span class="bench-tag">N-gram overlap vs. human reference</span></div>
+      </div>
+      <div class="bench-row">
+        <div class="bench-cat">LLM-as-a-judge</div>
+        <div class="bench-items"><span class="bench-tag">Fluency</span><span class="bench-tag">Accuracy</span></div>
+      </div>
+      <div class="bench-row">
+        <div class="bench-cat">Glossary compliance</div>
+        <div class="bench-items"><span class="bench-tag">Automated term extraction</span><span class="bench-tag">Manual verification</span></div>
+      </div>
+      <div class="bench-row">
+        <div class="bench-cat">Terminology adherence, by paragraph</div>
+        <div class="bench-items"><span class="bench-tag">Required terms actually used / expected</span></div>
+      </div>
+      <div class="bench-row">
+        <div class="bench-cat">Translation memory evaluation</div>
+        <div class="bench-items"><span class="bench-tag">Similarity &amp; coverage</span><span class="bench-tag">Qualitative error analysis</span></div>
+      </div>
+    </div>
+
+    <h3 class="sub">LLM-as-a-judge, roughly</h3>
+    <p class="lede">The judge gets the original, the human reference, and the candidate translation side by side, and scores the candidate on accuracy and fluency independently — deliberately not just "does it match the reference," since a translation can be faithful and fluent while still wording things differently than the reference did.</p>
+    <div class="code-panel">
+<span class="cmt"># illustrative — not the exact prompt in use</span>
+SYSTEM_PROMPT = <span class="str">"""
+You are a bilingual medical-translation reviewer (English -> Chinese).
+Score the CANDIDATE against the ORIGINAL and REFERENCE, 0-100 on:
+
+  accuracy — meaning preserved, no facts added, dropped, or altered
+  fluency  — reads as natural professional Chinese, not a literal
+             word-for-word rendering
+
+A candidate that differs from the reference in wording but is still
+accurate and fluent should score well — don't penalize for that alone.
+
+Return only JSON: {"accuracy": &lt;int&gt;, "fluency": &lt;int&gt;, "notes": &lt;str&gt;}
+"""</span>
+    </div>
+
+    <h3 class="sub">Ranking with the same Bradley-Terry approach</h3>
+    <p class="lede">Rather than average scores across documents, each pair of translation methods is compared head-to-head on the same document, per metric — the same Bradley-Terry ranking approach used for LLM benchmarking, reused here to turn per-document scores into a single relative ranking per metric.</p>
+    <div class="callout"><b>Reading the ranking:</b> a win score is only meaningful within its own metric — a higher score means a method beats others more consistently on that metric, but scores aren't comparable across metrics (BLEU vs. fluency, say), since each has its own scoring scale and variance.</div>
+
+    <h3 class="sub">Where it's headed</h3>
+    <p class="lede">This isn't a one-time comparison — as new translation approaches and newer LLMs show up, the plan is to re-run the same evaluation framework against them, so a model's fit for this use case stays a question that gets re-asked, not one answered once and left to age.</p>
+  </div>
+</section>
+
+<section id="production">
+  <div class="wrap">
+    <h2 class="section-title">From POC to production</h2>
+    <p class="lede">The retrieval pipeline and evaluation above settled which approach to use — turning that into something other systems can rely on was a separate step. Once the POC proved out, it handed off to MSD's Central AI team, who own productionizing it: hosting, scaling, and exposing it as a shared API rather than something every consuming app has to embed on its own.</p>
+    <div class="loop">
+      <div class="loop-step">
+        <div class="n">01</div>
+        <div class="t">POC validated</div>
+        <div class="d">The retrieval pipeline and evaluation framework above prove the approach out on real documents.</div>
+      </div>
+      <div class="loop-arrow">→</div>
+      <div class="loop-step">
+        <div class="n">02</div>
+        <div class="t">Handoff to Central AI</div>
+        <div class="d">Productionizing — hosting, scaling, versioning — becomes the Central AI team's responsibility, not ours.</div>
+      </div>
+      <div class="loop-arrow">→</div>
+      <div class="loop-step">
+        <div class="n">03</div>
+        <div class="t">Exposed as an API</div>
+        <div class="d">A shared translation endpoint any internal app can call, instead of each team embedding its own copy of the pipeline.</div>
+      </div>
+      <div class="loop-arrow">→</div>
+      <div class="loop-step">
+        <div class="n">04</div>
+        <div class="t">Called directly from our app</div>
+        <div class="d">Our app, linked to the AE intake CRM (Veeva), calls the endpoint directly to translate case narratives as part of intake.</div>
+      </div>
+    </div>
+    <div class="callout"><b>Why hand it off:</b> a translation API used by more than one team is infrastructure, not a project — centrally owning it means one team versions and maintains it consistently for every consumer, instead of each app carrying its own copy of the pipeline.</div>
   </div>
 </section>
 
